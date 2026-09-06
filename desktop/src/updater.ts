@@ -6,7 +6,9 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
 
   ipcMain.handle('install-update', () => {
     if (app.isPackaged) {
-      autoUpdater.quitAndInstall();
+      // Install without showing the NSIS wizard and come back up on the new
+      // version; a default quitAndInstall() would walk the user through setup.
+      autoUpdater.quitAndInstall(true, true);
     }
   });
 
@@ -29,7 +31,7 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
 
   if (!app.isPackaged) return;
 
-  autoUpdater.autoDownload = false;
+  autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on('checking-for-update', () => {
@@ -38,7 +40,7 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
   });
 
   autoUpdater.on('update-available', (info: UpdateInfo) => {
-    console.log('Update available, downloading...');
+    console.log('Update available, downloading in background...');
     const notes = Array.isArray(info.releaseNotes)
       ? info.releaseNotes.map((n) => n.note ?? '').join('\n\n')
       : (info.releaseNotes ?? null);
