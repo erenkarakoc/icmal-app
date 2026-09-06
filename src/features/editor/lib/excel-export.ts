@@ -98,7 +98,7 @@ export async function exportEkapDocumentToExcel(
   workbook.Props = {
     Title: document.tenderInfo.ad || 'EKAP Teklifi',
     Subject: `${document.tenderInfo.iknYil}/${document.tenderInfo.iknSayi}`,
-    Author: 'EKAP Editor',
+    Author: 'İcmal',
   };
 
   XLSX.writeFile(workbook, createExcelFileName(fileName), { compression: true });
