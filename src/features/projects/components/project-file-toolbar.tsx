@@ -114,14 +114,14 @@ export function ProjectFileToolbar(props: Props) {
   // A .icmal file opened from the OS waits in the main process until this mounts.
   useEffect(() => {
     const api = window.electronAPI;
-    if (!api?.projectPending) return;
+    if (!api?.filePendingTake) return;
     let cancelled = false;
     const collect = async () => {
-      const pending = await api.projectPending().catch(() => null);
+      const pending = await api.filePendingTake('icmal').catch(() => null);
       if (pending && !cancelled) await openAction.current(undefined, {bytes: pending.bytes, token: pending.token});
     };
     void collect();
-    const stop = api.onProjectFilePending(() => void collect());
+    const stop = api.onFilePending(kind => { if (kind === 'icmal') void collect(); });
     return () => { cancelled = true; stop(); };
   }, []);
   useEffect(() => {

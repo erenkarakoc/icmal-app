@@ -24,6 +24,11 @@ fileAssociations:
     description: İcmal proje dosyası
     icon: ../public/assets/images/brand/file-icon.ico
     role: Editor
+  - ext: ekap
+    name: EKAP teklif dosyası
+    description: EKAP teklif dosyası
+    icon: ../public/assets/images/brand/file-icon.ico
+    role: Editor
 
 publish:
   provider: github

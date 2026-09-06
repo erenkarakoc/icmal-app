@@ -5,10 +5,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
   projectOpen: () => ipcRenderer.invoke('project-open'),
   projectSave: (input: {token?: string; name: string; bytes: Uint8Array; saveAs: boolean}) => ipcRenderer.invoke('project-save', input),
-  projectPending: () => ipcRenderer.invoke('project-pending'),
-  onProjectFilePending: (callback: () => void) => {
-    ipcRenderer.on('project-file-pending', callback);
-    return () => ipcRenderer.removeListener('project-file-pending', callback);
+  filePendingKind: () => ipcRenderer.invoke('file-pending-kind'),
+  filePendingTake: (kind: 'icmal' | 'ekap') => ipcRenderer.invoke('file-pending-take', kind),
+  onFilePending: (callback: (kind: 'icmal' | 'ekap') => void) => {
+    const handler = (_: Electron.IpcRendererEvent, kind: 'icmal' | 'ekap') => callback(kind);
+    ipcRenderer.on('file-pending', handler);
+    return () => ipcRenderer.removeListener('file-pending', handler);
   },
   windowMinimize: () => ipcRenderer.send('window-minimize'),
   windowMaximize: () => ipcRenderer.send('window-maximize'),

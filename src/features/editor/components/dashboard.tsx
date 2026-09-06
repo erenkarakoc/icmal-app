@@ -126,6 +126,28 @@ export default function Dashboard() {
     event.target.value = '';
   }, []);
 
+  // An .ekap file opened from the shell waits in the main process until this
+  // mounts; it then goes through the same password prompt as a picked file.
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.filePendingTake) return;
+    let cancelled = false;
+    const collect = async () => {
+      const pending = await api.filePendingTake('ekap').catch(() => null);
+      if (!pending || cancelled) return;
+      setPendingFile(new File([new Uint8Array(pending.bytes)], pending.name));
+      setPassword('');
+    };
+    void collect();
+    const stop = api.onFilePending((kind) => {
+      if (kind === 'ekap') void collect();
+    });
+    return () => {
+      cancelled = true;
+      stop();
+    };
+  }, []);
+
   const createSession = (doc: EkapDocument, file: File, pwd: string) => {
     const newSession: TabSession = {
       id: crypto.randomUUID(),

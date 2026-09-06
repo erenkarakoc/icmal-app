@@ -21,8 +21,12 @@ declare global {
       platform: string;
       projectOpen: () => Promise<{token: string; name: string; bytes: Uint8Array} | null>;
       projectSave: (input: {token?: string; name: string; bytes: Uint8Array; saveAs: boolean}) => Promise<{token: string; name: string} | null>;
-      projectPending: () => Promise<{token: string; name: string; bytes: Uint8Array} | null>;
-      onProjectFilePending: (callback: () => void) => () => void;
+      filePendingKind: () => Promise<'icmal' | 'ekap' | null>;
+      filePendingTake: {
+        (kind: 'icmal'): Promise<{token: string; name: string; bytes: Uint8Array} | null>;
+        (kind: 'ekap'): Promise<{name: string; bytes: Uint8Array} | null>;
+      };
+      onFilePending: (callback: (kind: 'icmal' | 'ekap') => void) => () => void;
       windowMinimize: () => void;
       windowMaximize: () => void;
       windowClose: () => void;

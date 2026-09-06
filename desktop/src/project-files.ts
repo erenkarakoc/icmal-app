@@ -52,22 +52,10 @@ export function registerProjectFiles(window: BrowserWindow, origin: string) {
     if (data.token) grants.delete(data.token);
     return {token, name: path.basename(target)};
   });
-  // The OS hands over a path when a .icmal file is double-clicked; the renderer
-  // collects it once it has mounted, so the handover cannot outrun the UI.
-  let pending: string | null = null;
-  register('project-pending', async () => {
-    const target = pending;
-    pending = null;
-    if (!target) return null;
-    return readProject(target);
-  });
   window.on('closed', () => grants.clear());
-  return {
-    handOver(target: string) {
-      pending = target;
-      if (!window.isDestroyed()) window.webContents.send('project-file-pending');
-    },
-  };
+  // A .icmal file handed over by the shell still needs a save grant, so it is
+  // adopted through the same read path as the open dialog.
+  return {adopt: readProject};
 }
 
 export function registerProjectCloseGuard(window: BrowserWindow) {

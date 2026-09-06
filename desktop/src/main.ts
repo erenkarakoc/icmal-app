@@ -1,7 +1,8 @@
 import { app, BrowserWindow, dialog, ipcMain, shell, session } from 'electron';
 import fs from 'node:fs';
 import { registerProjectFiles, registerProjectCloseGuard } from './project-files';
-import { projectPathFromArgv } from './project-launch';
+import { documentPathFromArgv } from './project-launch';
+import { registerFileHandover } from './file-handover';
 import path from 'node:path';
 import { startServer, stopServer, initLog, log } from './server';
 import { APP_NAME, APP_ID, userDataPath } from './identity';
@@ -30,18 +31,18 @@ const DEV_SERVER_URL = 'http://localhost:3000';
 
 let mainWindow: BrowserWindow | null = null;
 let serverUrl: string = DEV_SERVER_URL;
-let projectFiles: { handOver(target: string): void } | null = null;
-let launchProjectPath: string | null = null;
+let fileHandover: { handOver(target: string): void } | null = null;
+let launchDocumentPath: string | null = null;
 
-function openProjectPath(target: string): void {
-  log(`Project file handover requested: ${path.basename(target)}`);
-  if (!mainWindow || !projectFiles) {
-    launchProjectPath = target;
+function openDocumentPath(target: string): void {
+  log(`Document handover requested: ${path.basename(target)}`);
+  if (!mainWindow || !fileHandover) {
+    launchDocumentPath = target;
     return;
   }
   if (mainWindow.isMinimized()) mainWindow.restore();
   mainWindow.focus();
-  projectFiles.handOver(target);
+  fileHandover.handOver(target);
 }
 
 // A second launch must reuse this window instead of starting a rival instance.
@@ -50,8 +51,8 @@ if (!isPrimaryInstance) {
   app.quit();
 } else {
   app.on('second-instance', (_event, argv) => {
-    const target = projectPathFromArgv(argv);
-    if (target) openProjectPath(target);
+    const target = documentPathFromArgv(argv);
+    if (target) openDocumentPath(target);
     else if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
@@ -62,10 +63,10 @@ if (!isPrimaryInstance) {
 // macOS delivers the path through an event rather than argv.
 app.on('open-file', (event, target) => {
   event.preventDefault();
-  openProjectPath(target);
+  openDocumentPath(target);
 });
 
-launchProjectPath = projectPathFromArgv(process.argv);
+launchDocumentPath = documentPathFromArgv(process.argv);
 
 function getHostedWebUrl(resourcesPath: string): string | null {
   try {
@@ -103,7 +104,9 @@ function createWindow(): void {
     },
   });
 
-  projectFiles = registerProjectFiles(mainWindow, new URL(serverUrl).origin);
+  const origin = new URL(serverUrl).origin;
+  const projectFiles = registerProjectFiles(mainWindow, origin);
+  fileHandover = registerFileHandover(mainWindow, origin, projectFiles.adopt);
   registerProjectCloseGuard(mainWindow);
   mainWindow.loadURL(serverUrl);
 
@@ -226,10 +229,10 @@ app.whenReady().then(async () => {
   createWindow();
   initAutoUpdater(mainWindow!);
 
-  if (launchProjectPath) {
-    const target = launchProjectPath;
-    launchProjectPath = null;
-    openProjectPath(target);
+  if (launchDocumentPath) {
+    const target = launchDocumentPath;
+    launchDocumentPath = null;
+    openDocumentPath(target);
   }
 
   app.on('activate', () => {
