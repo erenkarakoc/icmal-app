@@ -1,4 +1,5 @@
 import Decimal from 'decimal.js';
+import { kurusaYuvarla } from '../../../shared/lib/para.ts';
 
 /**
  * Proje giderleri (K-06 · Soru 5-6).
@@ -86,9 +87,14 @@ export function giderleriHesapla(kalemToplami: Decimal, giderler: Gider[]): Gide
       }
     }
 
-    const tutar = gider.tur === 'tutar'
-      ? new Decimal(gider.deger)
-      : taban.times(new Decimal(gider.deger)).dividedBy(100);
+    // Gider tutari paradir: K-10 geregi kurusa iner (TEMEL-05.3). Zincirli
+    // yuzdeli giderlerde taban ONCEKI giderlerin yuvarlanmis tutarlarindan
+    // olusur; boylece ekranda gorunen degerlerle toplam tutarli kalir.
+    const tutar = kurusaYuvarla(
+      gider.tur === 'tutar'
+        ? new Decimal(gider.deger)
+        : taban.times(new Decimal(gider.deger)).dividedBy(100),
+    );
 
     const sonuc: GiderSonucu = { id, ad: gider.ad, taban, tutar };
     cozulen.set(id, sonuc);
