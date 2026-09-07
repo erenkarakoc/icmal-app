@@ -2,9 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { createHash } from 'node:crypto';
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand,
-         ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { createHash, randomUUID } from 'node:crypto';
+import { AwsClient } from 'aws4fetch';
+
+/**
+ * Bu testler `proje-dosyasi` Edge Function'inin yaptigi isi birebir tekrarlar:
+ * kisa omurlu imzali URL uretip baytlari onun uzerinden tasir. Uygulama artik
+ * R2 kimlik bilgisi tutmaz; buradaki degerler yalniz gelistirme makinesindedir.
+ */
 
 // .env.local yalniz gelistirme makinesinde vardir; CI'da bu testler atlanir.
 function ortam() {
@@ -21,80 +26,128 @@ function ortam() {
 const env = ortam();
 const atla = env ? false : 'R2 yapilandirmasi yok (.env.local eksik)';
 
+const hex = (b) => createHash('sha256').update(b).digest('hex');
+const b64 = (b) => createHash('sha256').update(b).digest('base64');
+
 function istemci(e) {
-  return new S3Client({
-    endpoint: e.R2_ENDPOINT || `https://${e.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  return new AwsClient({
+    accessKeyId: e.R2_ACCESS_KEY_ID,
+    secretAccessKey: e.R2_SECRET_ACCESS_KEY,
+    service: 's3',
     region: 'auto',
-    credentials: { accessKeyId: e.R2_ACCESS_KEY_ID, secretAccessKey: e.R2_SECRET_ACCESS_KEY },
   });
 }
 
-const ozet = (b) => createHash('sha256').update(b).digest('hex');
+/** Edge Function'daki imzalama ile ayni: sorgu imzasi, kisa omur. */
+async function imzala(e, anahtar, method, headers = {}, omur = 120) {
+  const endpoint = e.R2_ENDPOINT || `https://${e.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+  const url = new URL(`${endpoint}/${e.R2_BUCKET}/${anahtar}`);
+  url.searchParams.set('X-Amz-Expires', String(omur));
+  const imzali = await istemci(e).sign(url.toString(), {
+    method,
+    headers,
+    aws: { signQuery: true },
+  });
+  return imzali.url;
+}
 
-test('proje yaz, oku, ozetle dogrula ve sil', { skip: atla }, async () => {
-  const s3 = istemci(env);
-  const anahtar = `projeler/_test/${crypto.randomUUID()}.icmal`;
+const yeniAnahtar = () => `projeler/_test/${randomUUID()}.icmal`;
+
+async function temizle(e, anahtar) {
+  await fetch(await imzala(e, anahtar, 'DELETE'), { method: 'DELETE' }).catch(() => {});
+}
+
+test('imzali URL ile proje yaz, oku ve ozetle dogrula', { skip: atla }, async () => {
+  const anahtar = yeniAnahtar();
   // Gercek .icmal gibi ikili icerik; metin degil.
-  const veri = new Uint8Array([0x50, 0x4b, 0x03, 0x04, ...Array.from({length: 120}, (_, i) => i % 256)]);
-  const beklenen = ozet(veri);
+  const veri = new Uint8Array([0x50, 0x4b, 0x03, 0x04, ...Array.from({ length: 120 }, (_, i) => i % 256)]);
+  const ozet = b64(veri);
 
   try {
-    await s3.send(new PutObjectCommand({
-      Bucket: env.R2_BUCKET, Key: anahtar, Body: veri,
-      ContentType: 'application/zip',
-      ChecksumSHA256: Buffer.from(beklenen, 'hex').toString('base64'),
-    }));
+    const put = await fetch(await imzala(env, anahtar, 'PUT', { 'x-amz-checksum-sha256': ozet }), {
+      method: 'PUT',
+      body: veri,
+      headers: { 'x-amz-checksum-sha256': ozet },
+    });
+    assert.equal(put.status, 200, 'imzali yazim kabul edilmeli');
 
-    const g = await s3.send(new GetObjectCommand({ Bucket: env.R2_BUCKET, Key: anahtar }));
-    const okunan = new Uint8Array(await g.Body.transformToByteArray());
+    const get = await fetch(await imzala(env, anahtar, 'GET'));
+    const okunan = new Uint8Array(await get.arrayBuffer());
 
     assert.equal(okunan.length, veri.length, 'okunan boyut yazilanla ayni olmali');
-    assert.equal(ozet(okunan), beklenen, 'icerik ozeti yazilanla ayni olmali');
+    assert.equal(hex(okunan), hex(veri), 'icerik ozeti yazilanla ayni olmali');
     assert.deepEqual(Array.from(okunan.slice(0, 4)), [0x50, 0x4b, 0x03, 0x04], 'ZIP imzasi korunmali');
   } finally {
-    await s3.send(new DeleteObjectCommand({ Bucket: env.R2_BUCKET, Key: anahtar })).catch(() => {});
+    await temizle(env, anahtar);
   }
 });
 
 test('silinen nesne gercekten gitmis olmali', { skip: atla }, async () => {
-  const s3 = istemci(env);
-  const anahtar = `projeler/_test/${crypto.randomUUID()}.icmal`;
-  await s3.send(new PutObjectCommand({ Bucket: env.R2_BUCKET, Key: anahtar, Body: new Uint8Array([1, 2, 3]) }));
-  await s3.send(new DeleteObjectCommand({ Bucket: env.R2_BUCKET, Key: anahtar }));
+  const anahtar = yeniAnahtar();
+  const veri = new Uint8Array([1, 2, 3]);
+  await fetch(await imzala(env, anahtar, 'PUT', { 'x-amz-checksum-sha256': b64(veri) }), {
+    method: 'PUT',
+    body: veri,
+    headers: { 'x-amz-checksum-sha256': b64(veri) },
+  });
 
-  const liste = await s3.send(new ListObjectsV2Command({ Bucket: env.R2_BUCKET, Prefix: anahtar }));
-  assert.equal(liste.KeyCount ?? 0, 0, 'silinen anahtar listede kalmamali');
+  const sil = await fetch(await imzala(env, anahtar, 'DELETE'), { method: 'DELETE' });
+  assert.equal(sil.status, 204, 'silme 204 donmeli');
+
+  const get = await fetch(await imzala(env, anahtar, 'GET'));
+  assert.equal(get.status, 404, 'silinen anahtar bulunmamali');
 });
 
 test('ustune yazma son icerigi birakir (surumleme yok)', { skip: atla }, async () => {
-  const s3 = istemci(env);
-  const anahtar = `projeler/_test/${crypto.randomUUID()}.icmal`;
+  const anahtar = yeniAnahtar();
+  const ilk = new Uint8Array([1, 1, 1]);
+  const son = new Uint8Array([2, 2, 2, 2]);
   try {
-    await s3.send(new PutObjectCommand({ Bucket: env.R2_BUCKET, Key: anahtar, Body: new Uint8Array([1, 1, 1]) }));
-    await s3.send(new PutObjectCommand({ Bucket: env.R2_BUCKET, Key: anahtar, Body: new Uint8Array([2, 2, 2, 2]) }));
-
-    const g = await s3.send(new GetObjectCommand({ Bucket: env.R2_BUCKET, Key: anahtar }));
-    const okunan = new Uint8Array(await g.Body.transformToByteArray());
+    for (const veri of [ilk, son]) {
+      await fetch(await imzala(env, anahtar, 'PUT', { 'x-amz-checksum-sha256': b64(veri) }), {
+        method: 'PUT',
+        body: veri,
+        headers: { 'x-amz-checksum-sha256': b64(veri) },
+      });
+    }
+    const get = await fetch(await imzala(env, anahtar, 'GET'));
+    const okunan = new Uint8Array(await get.arrayBuffer());
     assert.deepEqual(Array.from(okunan), [2, 2, 2, 2], 'ikinci yazim birincinin uzerine yazmali');
-
-    const liste = await s3.send(new ListObjectsV2Command({ Bucket: env.R2_BUCKET, Prefix: anahtar }));
-    assert.equal(liste.KeyCount, 1, 'ayni anahtar icin tek nesne olmali');
   } finally {
-    await s3.send(new DeleteObjectCommand({ Bucket: env.R2_BUCKET, Key: anahtar })).catch(() => {});
+    await temizle(env, anahtar);
   }
 });
 
 test('bozuk ozet yazimi reddedilmeli', { skip: atla }, async () => {
-  const s3 = istemci(env);
-  const anahtar = `projeler/_test/${crypto.randomUUID()}.icmal`;
+  const anahtar = yeniAnahtar();
   const veri = new Uint8Array([9, 9, 9]);
-  const yanlis = Buffer.from(ozet(new Uint8Array([1])), 'hex').toString('base64');
+  const yanlis = b64(new Uint8Array([1]));
 
-  await assert.rejects(
-    () => s3.send(new PutObjectCommand({
-      Bucket: env.R2_BUCKET, Key: anahtar, Body: veri, ChecksumSHA256: yanlis,
-    })),
-    'yanlis sha256 ile yazim kabul edilmemeli',
-  );
-  await s3.send(new DeleteObjectCommand({ Bucket: env.R2_BUCKET, Key: anahtar })).catch(() => {});
+  const put = await fetch(await imzala(env, anahtar, 'PUT', { 'x-amz-checksum-sha256': yanlis }), {
+    method: 'PUT',
+    body: veri,
+    headers: { 'x-amz-checksum-sha256': yanlis },
+  });
+  assert.equal(put.ok, false, 'yanlis sha256 ile yazim kabul edilmemeli');
+  await temizle(env, anahtar);
+});
+
+test('imzanin omru dolunca erisim kapanir', { skip: atla }, async () => {
+  // Kisa omur guvenligin bel kemigi: sizan bir URL kalici erisim olmamali.
+  const anahtar = yeniAnahtar();
+  const eski = await imzala(env, anahtar, 'GET', {}, 1);
+  await new Promise((r) => setTimeout(r, 2500));
+  const get = await fetch(eski);
+  assert.equal(get.status, 403, 'suresi gecmis imza reddedilmeli');
+});
+
+test('imza yalniz imzalandigi anahtar icin gecerlidir', { skip: atla }, async () => {
+  // Edge Function anahtari JWT'den uretir; imzalanan yol disina cikilamamali.
+  const benim = yeniAnahtar();
+  const baskasi = yeniAnahtar();
+  const url = new URL(await imzala(env, benim, 'GET'));
+  const kaydirilmis = url.toString().replace(encodeURI(benim), encodeURI(baskasi));
+
+  const get = await fetch(kaydirilmis);
+  assert.equal(get.status, 403, 'baska anahtara kaydirilan imza reddedilmeli');
 });

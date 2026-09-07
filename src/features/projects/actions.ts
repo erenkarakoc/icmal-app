@@ -46,11 +46,19 @@ async function sarmala<T>(is: () => Promise<T>): Promise<Sonuc<T>> {
   }
 }
 
+/**
+ * Oturumu dogrular ve erisim belirtecini de dondurur.
+ *
+ * Belirtec gerekli: R2 yetkisi artik `proje-dosyasi` Edge Function'inda; nesne
+ * anahtarini o uretiyor ve bunun icin cagiranin kimligini kendisi dogruluyor.
+ */
 async function oturum() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Bu işlem için giriş yapmalısınız.');
-  return { supabase, user };
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Oturum bilgisi okunamadı; yeniden giriş yapın.');
+  return { supabase, user, belirtec: session.access_token };
 }
 
 async function kotayiOku(): Promise<{ sinir: number; kullanilan: number; kalan: number }> {
@@ -77,7 +85,7 @@ async function olustur(ad: string, bytes: Uint8Array, ozet: Ozet) {
   if (!bytes.length) throw new Error('Bos proje kaydedilemez.');
   if (bytes.length > MAX_PROJECT_BYTES) throw new Error('Proje dosyasi boyut sinirini asiyor.');
 
-  const { supabase, user } = await oturum();
+  const { supabase, user, belirtec } = await oturum();
   const id = randomUUID();
   const anahtar = projeAnahtari(user.id, id);
 
@@ -97,7 +105,7 @@ async function olustur(ad: string, bytes: Uint8Array, ozet: Ozet) {
   if (ekleHatasi) throw new Error(ekleHatasi.message);
 
   try {
-    const { sha256 } = await projeYukle(anahtar, bytes);
+    const { sha256 } = await projeYukle(belirtec, user.id, id, bytes);
     const { error: guncelleHatasi } = await supabase
       .from('projeler')
       .update({ icerik_sha256: sha256 })
@@ -107,7 +115,7 @@ async function olustur(ad: string, bytes: Uint8Array, ozet: Ozet) {
   } catch (hata) {
     // R2 yazimi ya da ozet guncellemesi dustu: yarim kayit birakma.
     await supabase.from('projeler').delete().eq('id', id);
-    await projeSil(anahtar).catch(() => {});
+    await projeSil(belirtec, id).catch(() => {});
     throw hata;
   }
 }
@@ -117,15 +125,16 @@ async function guncelle(id: string, ad: string, bytes: Uint8Array, ozet: Ozet) {
   if (!bytes.length) throw new Error('Bos proje kaydedilemez.');
   if (bytes.length > MAX_PROJECT_BYTES) throw new Error('Proje dosyasi boyut sinirini asiyor.');
 
-  const { supabase } = await oturum();
+  const { supabase, user, belirtec } = await oturum();
+  // RLS zaten sahibe daraltir; bu okuma projenin varligini dogrular.
   const { data: mevcut, error: okumaHatasi } = await supabase
     .from('projeler')
-    .select('depolama_anahtari')
+    .select('id')
     .eq('id', id)
     .single();
-  if (okumaHatasi || !mevcut) throw new Error('Proje bulunamadi.');
+  if (okumaHatasi || !mevcut) throw new Error('Proje bulunamadı.');
 
-  const { sha256 } = await projeYukle(mevcut.depolama_anahtari, bytes);
+  const { sha256 } = await projeYukle(belirtec, user.id, id, bytes);
   const { error: guncelleHatasi } = await supabase
     .from('projeler')
     .update({
@@ -142,15 +151,15 @@ async function guncelle(id: string, ad: string, bytes: Uint8Array, ozet: Ozet) {
 }
 
 async function ac(id: string): Promise<{ ad: string; bytes: Uint8Array }> {
-  const { supabase } = await oturum();
+  const { supabase, belirtec } = await oturum();
   const { data, error } = await supabase
     .from('projeler')
-    .select('ad, depolama_anahtari, icerik_sha256')
+    .select('ad, icerik_sha256')
     .eq('id', id)
     .single();
-  if (error || !data) throw new Error('Proje bulunamadi.');
+  if (error || !data) throw new Error('Proje bulunamadı.');
   // Ozet dogrulamasi projeIndir icinde; bozuk icerik sessizce acilmaz.
-  const bytes = await projeIndir(data.depolama_anahtari, data.icerik_sha256);
+  const bytes = await projeIndir(belirtec, id, data.icerik_sha256);
   return { ad: data.ad, bytes };
 }
 
@@ -159,20 +168,20 @@ async function ac(id: string): Promise<{ ad: string; bytes: Uint8Array }> {
  * ki hak hemen acilsin; R2 nesnesi ardindan temizlenir.
  */
 async function sil(id: string) {
-  const { supabase } = await oturum();
+  const { supabase, belirtec } = await oturum();
   const { data, error } = await supabase
     .from('projeler')
-    .select('depolama_anahtari')
+    .select('id')
     .eq('id', id)
     .single();
-  if (error || !data) throw new Error('Proje bulunamadi.');
+  if (error || !data) throw new Error('Proje bulunamadı.');
 
   const { error: silmeHatasi } = await supabase.from('projeler').delete().eq('id', id);
   if (silmeHatasi) throw new Error(silmeHatasi.message);
 
   // Nesne silinemezse kayit yine de gitmistir; yetim nesne kullaniciyi
   // engellemez ve kota hakki acilmis olur.
-  await projeSil(data.depolama_anahtari).catch(() => {});
+  await projeSil(belirtec, id).catch(() => {});
   return { id };
 }
 
