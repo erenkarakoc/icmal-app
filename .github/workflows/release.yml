@@ -20,6 +20,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          # Surum notlari onceki etiketten bu yana gelen commit'lerden uretilir.
+          # Varsayilan sigh klonda (fetch-depth: 1) o gecmis yoktur ve notlar
+          # sessizce bos kalir; v1.0.20'de tam bu oldu.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v6
         with:
@@ -211,6 +216,9 @@ jobs:
                     Where-Object { $_ -ne $tag } | Select-Object -First 1
           $aralik = if ($onceki) { "$onceki..HEAD" } else { 'HEAD' }
           $satirlar = git log $aralik --no-merges --pretty=format:'%s'
+          # git basarisiz olursa asagidaki yedek metne DUSULMEMELI: bos aralik
+          # ile okunamayan gecmis ayni sonucu verir ve hata gorunmez kalir.
+          if ($LASTEXITCODE -ne 0) { throw "git log $aralik basarisiz; surum notu uretilemedi." }
 
           $yeni = @(); $duzeltme = @()
           foreach ($satir in $satirlar) {
