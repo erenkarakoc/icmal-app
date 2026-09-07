@@ -28,6 +28,14 @@ const expense = z.strictObject({
   value: decimal,
   baseExpenseIds: z.array(id).max(100).optional(),
 });
+// K-06 Soru 7-8: proje duzeyinde tek kar yontemi ve kalem bazinda sabitlenmis
+// teklif tutarlari. Maliyet degerleri bundan etkilenmez; teklif ayri tutulur.
+const offer = z.strictObject({
+  method: z.enum(['oran', 'sabit', 'hedefTeklif']),
+  value: decimal,
+  // Yalniz kullanicinin sabitledigi kalemler; digerleri paya gore hesaplanir.
+  fixedRows: z.array(z.strictObject({ rowId: id, amount: decimal })).max(10000).optional(),
+});
 export const CURRENT_VERSION = 2;
 export const projectSchema = z.strictObject({
   format: z.literal('icmal'), version: z.literal(CURRENT_VERSION),
@@ -37,6 +45,8 @@ export const projectSchema = z.strictObject({
   costRows: z.array(item).max(10000),
   percentageRows: z.array(percentageItem).max(10000),
   expenses: z.array(expense).max(1000),
+  // Istege bagli: teklif hesabi yapilmamis projede bulunmaz.
+  offer: offer.optional(),
 }).superRefine((project, ctx) => {
   for (const key of ['costRows', 'percentageRows'] as const) {
     const ids = new Set<string>();
@@ -60,6 +70,13 @@ export const projectSchema = z.strictObject({
           path: ['expenses', index, 'baseExpenseIds', baseIndex]});
       }
     });
+  });
+  const costIds = new Set(project.costRows.map((row) => row.id));
+  (project.offer?.fixedRows ?? []).forEach((fixed, index) => {
+    if (!costIds.has(fixed.rowId)) {
+      ctx.addIssue({code: 'custom', message: 'Sabitlenen teklif satırı bulunamadı',
+        path: ['offer', 'fixedRows', index, 'rowId']});
+    }
   });
   if (project.updatedAt < project.createdAt) ctx.addIssue({code: 'custom', message: 'Geçersiz kayıt tarihi'});
 });

@@ -67,3 +67,25 @@ test('compressed large content and oversized input are bounded',async()=>{
  await assert.rejects(decodeProject(new Uint8Array(MAX_PROJECT_BYTES+1)),/boyut sınırını/);
 });
 test('normalized traversal entry is rejected',async()=>{const zip=new JSZip();zip.file('../project.json',JSON.stringify(createProject('Yol')));await assert.rejects(decodeProject(await zip.generateAsync({type:'uint8array'})),/Geçersiz/);});
+
+test('teklif alani kaydedilip geri okunur',async()=>{
+ const temel=createProject('Teklifli');
+ const satir={id:'r1',pozNo:'A',description:'Kalem',unit:'m2',quantity:'10',unitPrice:'100'};
+ const proje={...temel,costRows:[satir],offer:{method:'hedefTeklif',value:'1350000',
+  fixedRows:[{rowId:'r1',amount:'800000'}]}};
+ const okunan=await decodeProject(await archive(proje));
+ assert.equal(okunan.offer.method,'hedefTeklif');
+ assert.equal(okunan.offer.value,'1350000','hedef tam korunmali');
+ assert.deepEqual(okunan.offer.fixedRows,[{rowId:'r1',amount:'800000'}],'sabit satir korunmali');
+});
+
+test('teklif alani olmayan proje gecerlidir',async()=>{
+ const okunan=await decodeProject(await archive(createProject('Teklifsiz')));
+ assert.equal(okunan.offer,undefined,'teklif yapilmamis proje de acilmali');
+});
+
+test('var olmayan kalemi sabitleyen teklif reddedilir',async()=>{
+ const proje={...createProject('Kayip satir'),offer:{method:'oran',value:'10',
+  fixedRows:[{rowId:'olmayan',amount:'1000'}]}};
+ await assert.rejects(decodeProject(await archive(proje)),/Geçersiz/);
+});
