@@ -41,11 +41,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('update-available', handler);
     return () => ipcRenderer.removeListener('update-available', handler);
   },
-  onUpdateProgress: (callback: (info: { percent: number }) => void) => {
-    const handler = (_: Electron.IpcRendererEvent, info: { percent: number }) => callback(info);
-    ipcRenderer.on('update-progress', handler);
-    return () => ipcRenderer.removeListener('update-progress', handler);
-  },
   onUpdateDownloaded: (callback: () => void) => {
     ipcRenderer.on('update-downloaded', callback);
     return () => {
@@ -63,7 +58,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('update-status', handler);
   },
   installUpdate: () => ipcRenderer.invoke('install-update'),
-  startDownload: () => ipcRenderer.invoke('start-download'),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   localEngineStatus: () => ipcRenderer.invoke('local-engine-status'),
   chooseWorkspace: () => ipcRenderer.invoke('local-engine-choose-workspace'),

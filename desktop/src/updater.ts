@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import { autoUpdater, UpdateInfo, ProgressInfo } from 'electron-updater';
+import { log } from './server';
 
 export function initAutoUpdater(mainWindow: BrowserWindow): void {
   let manualCheck = false;
@@ -10,13 +11,6 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
       // version; a default quitAndInstall() would walk the user through setup.
       autoUpdater.quitAndInstall(true, true);
     }
-  });
-
-  ipcMain.handle('start-download', () => {
-    if (app.isPackaged) {
-      return autoUpdater.downloadUpdate();
-    }
-    return Promise.resolve();
   });
 
   ipcMain.handle('check-for-updates', () => {
@@ -48,8 +42,11 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
     manualCheck = false;
   });
 
+  // Indirme arka planda yapilir ve kullaniciya bildirilmez (urun karari
+  // 2026-09-07): kullanici yalnizca "guncelleme var" ve indirme bitince
+  // "yeniden baslat" bilgisini gorur. Ilerleme yine gunluge yazilir.
   autoUpdater.on('download-progress', (progress: ProgressInfo) => {
-    mainWindow.webContents.send('update-progress', { percent: Math.round(progress.percent) });
+    log(`Update download ${Math.round(progress.percent)}%`);
   });
 
   autoUpdater.on('update-not-available', () => {
@@ -76,9 +73,19 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
 
 
 
-  setTimeout(() => {
+  const denetle = () =>
     autoUpdater.checkForUpdates().catch((err) => {
       console.error('Failed to check for updates:', err);
     });
-  }, 3000);
+
+  // Ilk denetim acilistan kisa sure sonra; ardindan yarim saatte bir. Uzun
+  // acik kalan pencerelerde yeni surum acilisi beklemeden yakalanir.
+  const ilk = setTimeout(denetle, 3000);
+  const donemsel = setInterval(denetle, 30 * 60 * 1000);
+
+  // Pencere kapaninca zamanlayicilar kalmasin.
+  mainWindow.on('closed', () => {
+    clearTimeout(ilk);
+    clearInterval(donemsel);
+  });
 }

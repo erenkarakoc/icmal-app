@@ -81,7 +81,6 @@ export function TitleBar({ title, showAppReturn = false }: TitleBarProps) {
     version: string;
     releaseNotes: string | null;
   } | null>(null);
-  const [downloadPercent, setDownloadPercent] = useState(-1);
   const [updateReady, setUpdateReady] = useState(false);
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
 
@@ -97,9 +96,6 @@ export function TitleBar({ title, showAppReturn = false }: TitleBarProps) {
       setUpdateInfo(info);
       setShowUpdateDialog(true);
     });
-    const cleanupProgress = window.electronAPI.onUpdateProgress(({ percent }) => {
-      setDownloadPercent(percent);
-    });
     const cleanupDownloaded = window.electronAPI.onUpdateDownloaded(() => {
       setUpdateReady(true);
       setShowUpdateDialog(true);
@@ -112,7 +108,6 @@ export function TitleBar({ title, showAppReturn = false }: TitleBarProps) {
     return () => {
       cleanupMaximize();
       cleanupAvail();
-      cleanupProgress();
       cleanupDownloaded();
       cleanupStatus();
     };
@@ -274,9 +269,7 @@ export function TitleBar({ title, showAppReturn = false }: TitleBarProps) {
         open={showUpdateDialog}
         onOpenChange={setShowUpdateDialog}
         updateInfo={updateInfo}
-        downloadPercent={downloadPercent}
         updateReady={updateReady}
-        onDownload={() => window.electronAPI?.startDownload()}
         onInstall={() => window.electronAPI?.installUpdate()}
       />
     </>

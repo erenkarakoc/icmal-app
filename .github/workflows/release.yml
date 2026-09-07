@@ -191,3 +191,41 @@ jobs:
             desktop/release/EKAP-Editor-SHA256.txt `
             --repo erenkarakoc/icmal-releases `
             --clobber
+
+      - name: Publish release notes
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          # electron-updater surum notunu GitHub release BODY'sinden okur. Body
+          # bos kalirsa kullanici "neyin degistigini" hic goremez.
+          #
+          # Notlar commit'lerden uretilir: yalniz feat: ve fix: alinir, cunku
+          # chore/docs/refactor kullaniciya bir sey ifade etmez. Bicim Markdown
+          # baslik + liste; arayuz bunu ayristirip kategorileri stillendirir.
+          $version = (Get-Content desktop/package.json | ConvertFrom-Json).version
+          $tag = "v$version"
+
+          git fetch --tags --quiet 2>$null
+          $onceki = git tag --list 'v*' --sort=-v:refname |
+                    Where-Object { $_ -ne $tag } | Select-Object -First 1
+          $aralik = if ($onceki) { "$onceki..HEAD" } else { 'HEAD' }
+          $satirlar = git log $aralik --no-merges --pretty=format:'%s'
+
+          $yeni = @(); $duzeltme = @()
+          foreach ($satir in $satirlar) {
+            # "feat(kapsam): metin" -> "metin"
+            if ($satir -match '^feat(\([^)]*\))?!?:\s*(.+)$') { $yeni += $Matches[2] }
+            elseif ($satir -match '^fix(\([^)]*\))?!?:\s*(.+)$') { $duzeltme += $Matches[2] }
+          }
+
+          $govde = @()
+          if ($yeni.Count)      { $govde += '## Yenilikler';  $govde += ($yeni      | ForEach-Object { "- $_" }); $govde += '' }
+          if ($duzeltme.Count)  { $govde += '## Düzeltmeler'; $govde += ($duzeltme  | ForEach-Object { "- $_" }); $govde += '' }
+          if (-not $govde.Count) { $govde = @('## Bu sürüm', '- Bakım ve iyileştirmeler.') }
+
+          $dosya = Join-Path $env:RUNNER_TEMP 'surum-notu.md'
+          ($govde -join "`n") | Set-Content -LiteralPath $dosya -Encoding utf8
+          Get-Content -LiteralPath $dosya
+
+          gh release edit $tag --notes-file $dosya --repo erenkarakoc/icmal-releases

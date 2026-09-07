@@ -40,13 +40,11 @@ declare global {
       onUpdateAvailable: (
         callback: (info: { version: string; releaseNotes: string | null }) => void,
       ) => () => void;
-      onUpdateProgress: (callback: (info: { percent: number }) => void) => () => void;
       onUpdateDownloaded: (callback: () => void) => () => void;
       onUpdateStatus: (
         callback: (info: { status: 'checking' | 'current' | 'error'; message?: string }) => void,
       ) => () => void;
       installUpdate: () => Promise<void>;
-      startDownload: () => Promise<void>;
       checkForUpdates: () => Promise<void>;
       localEngineStatus: () => Promise<YerelMotorDurumu>;
       chooseWorkspace: () => Promise<YerelMotorDurumu>;
