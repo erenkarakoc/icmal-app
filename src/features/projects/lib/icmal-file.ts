@@ -19,13 +19,24 @@ const item = z.strictObject({
 const percentageItem = item.extend({
   percentageLow: decimal, percentageHigh: decimal, useRange: z.boolean(),
 });
+// K-06 Soru 5-6: isimlendirilmis gider satirlari; yuzdeli giderin tabani
+// varsayilan olarak is kalemleri toplamidir, kullanici baska giderleri acikca
+// ekleyebilir. Baglantilar satir sirasindan bagimsiz kimliklerle tutulur.
+const expense = z.strictObject({
+  id, name: z.string().trim().min(1).max(200),
+  kind: z.enum(['tutar', 'yuzde']),
+  value: decimal,
+  baseExpenseIds: z.array(id).max(100).optional(),
+});
+export const CURRENT_VERSION = 2;
 export const projectSchema = z.strictObject({
-  format: z.literal('icmal'), version: z.literal(1),
+  format: z.literal('icmal'), version: z.literal(CURRENT_VERSION),
   id, name: z.string().trim().min(1).max(200),
   createdAt: z.iso.datetime(), updatedAt: z.iso.datetime(),
   currency: z.literal('TRY'),
   costRows: z.array(item).max(10000),
   percentageRows: z.array(percentageItem).max(10000),
+  expenses: z.array(expense).max(1000),
 }).superRefine((project, ctx) => {
   for (const key of ['costRows', 'percentageRows'] as const) {
     const ids = new Set<string>();
@@ -34,14 +45,30 @@ export const projectSchema = z.strictObject({
       ids.add(row.id);
     });
   }
+  const expenseIds = new Set<string>();
+  project.expenses.forEach((expense, index) => {
+    if (expenseIds.has(expense.id)) {
+      ctx.addIssue({code: 'custom', message: 'Yinelenen gider kimliği', path: ['expenses', index, 'id']});
+    }
+    expenseIds.add(expense.id);
+  });
+  // Bilinmeyen bir tabana bagli gider hesabi sessizce bozar; dosya duzeyinde reddedilir.
+  project.expenses.forEach((expense, index) => {
+    (expense.baseExpenseIds ?? []).forEach((baseId, baseIndex) => {
+      if (!expenseIds.has(baseId)) {
+        ctx.addIssue({code: 'custom', message: 'Taban gideri bulunamadı',
+          path: ['expenses', index, 'baseExpenseIds', baseIndex]});
+      }
+    });
+  });
   if (project.updatedAt < project.createdAt) ctx.addIssue({code: 'custom', message: 'Geçersiz kayıt tarihi'});
 });
 export type IcmalProject = z.infer<typeof projectSchema>;
 
 export function createProject(name: string): IcmalProject {
   const now = new Date().toISOString();
-  return projectSchema.parse({format: 'icmal', version: 1, id: crypto.randomUUID(), name,
-    createdAt: now, updatedAt: now, currency: 'TRY', costRows: [], percentageRows: []});
+  return projectSchema.parse({format: 'icmal', version: CURRENT_VERSION, id: crypto.randomUUID(), name,
+    createdAt: now, updatedAt: now, currency: 'TRY', costRows: [], percentageRows: [], expenses: []});
 }
 
 export async function encodeProject(value: unknown): Promise<Uint8Array> {
@@ -98,10 +125,15 @@ export async function decodeProject(bytes: Uint8Array): Promise<IcmalProject> {
     }
     const data = await readBounded(entries[0]);
     const value = JSON.parse(new TextDecoder('utf-8', {fatal: true}).decode(data));
-    if (value?.format === 'icmal' && value.version !== 1) {
+    if (value?.format === 'icmal' && value.version !== 1 && value.version !== CURRENT_VERSION) {
       throw new Error('Bu .icmal dosyasının sürümü desteklenmiyor.');
     }
-    return projectSchema.parse(value);
+    // v1'de gider yoktu. Eski dosya bos gider listesiyle yukseltilir; kullanici
+    // kaydettiginde v2 olarak yazilir.
+    const upgraded = value?.format === 'icmal' && value.version === 1
+      ? {...value, version: CURRENT_VERSION, expenses: []}
+      : value;
+    return projectSchema.parse(upgraded);
   } catch (error) {
     if (error instanceof Error && (error.message.includes('boyut sınırını') || error.message.includes('sürümü desteklenmiyor'))) throw error;
     throw new Error('Geçersiz veya desteklenmeyen .icmal dosyası.');

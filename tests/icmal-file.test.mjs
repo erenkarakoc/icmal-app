@@ -16,8 +16,46 @@ test('duplicate ids, invalid decimal and unknown fields cannot be saved',async()
  p.costRows=[];await assert.rejects(encodeProject({...p,subscription:'paid'}));
 });
 test('future versions and extra archive contents are rejected without data loss',async()=>{
- await assert.rejects(decodeProject(await archive({...createProject('Yeni'),version:2})),/sürümü desteklenmiyor/);
+ // v2 artik gecerli surum; bir sonraki surum hala reddedilmeli.
+ await assert.rejects(decodeProject(await archive({...createProject('Yeni'),version:3})),/sürümü desteklenmiyor/);
  await assert.rejects(decodeProject(await archive(createProject('Ek'),true)),/Geçersiz/);
+});
+
+test('v1 dosyasi bos gider listesiyle yukseltilir',async()=>{
+ const v2=createProject('Eski dosya');
+ // Gercek bir v1 dosyasi: surum 1 ve gider alani hic yok.
+ const v1={...v2,version:1};
+ delete v1.expenses;
+ const okunan=await decodeProject(await archive(v1));
+ assert.equal(okunan.version,2,'v1 dosyasi v2 olarak okunmali');
+ assert.deepEqual(okunan.expenses,[],'gider listesi bos baslamali');
+ assert.equal(okunan.name,'Eski dosya','ad korunmali');
+});
+
+test('gider satirlari kaydedilip geri okunur',async()=>{
+ const proje={...createProject('Giderli'),expenses:[
+  {id:'s1',name:'Şantiye kurulumu',kind:'tutar',value:'100000'},
+  {id:'g1',name:'Genel gider',kind:'yuzde',value:'10',baseExpenseIds:['s1']},
+ ]};
+ const okunan=await decodeProject(await archive(proje));
+ assert.equal(okunan.expenses.length,2);
+ assert.equal(okunan.expenses[1].value,'10','oran tam korunmali');
+ assert.deepEqual(okunan.expenses[1].baseExpenseIds,['s1'],'taban secimi korunmali');
+});
+
+test('bilinmeyen tabana bagli gider reddedilir',async()=>{
+ const proje={...createProject('Kayip taban'),expenses:[
+  {id:'g1',name:'Genel gider',kind:'yuzde',value:'10',baseExpenseIds:['yok']},
+ ]};
+ await assert.rejects(decodeProject(await archive(proje)),/Geçersiz/);
+});
+
+test('yinelenen gider kimligi reddedilir',async()=>{
+ const proje={...createProject('Kopya'),expenses:[
+  {id:'ayni',name:'Bir',kind:'tutar',value:'1'},
+  {id:'ayni',name:'Iki',kind:'tutar',value:'2'},
+ ]};
+ await assert.rejects(decodeProject(await archive(proje)),/Geçersiz/);
 });
 test('invalid ZIP and malformed project data are rejected',async()=>{
  await assert.rejects(decodeProject(new Uint8Array([1,2,3])),/Geçersiz/);
