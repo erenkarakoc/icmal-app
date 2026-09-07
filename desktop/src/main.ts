@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { registerProjectFiles, registerProjectCloseGuard } from './project-files';
 import { documentPathFromArgv } from './project-launch';
 import { registerFileHandover } from './file-handover';
+import { ProjectRegistry } from './project-registry';
 import path from 'node:path';
 import { startServer, stopServer, initLog, log } from './server';
 import { APP_NAME, APP_ID, userDataPath } from './identity';
@@ -105,7 +106,8 @@ function createWindow(): void {
   });
 
   const origin = new URL(serverUrl).origin;
-  const projectFiles = registerProjectFiles(mainWindow, origin);
+  const registry = new ProjectRegistry(path.join(app.getPath('userData'), 'yerel-projeler.json'));
+  const projectFiles = registerProjectFiles(mainWindow, origin, registry);
   fileHandover = registerFileHandover(mainWindow, origin, projectFiles.adopt);
   registerProjectCloseGuard(mainWindow);
   mainWindow.loadURL(serverUrl);

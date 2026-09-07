@@ -21,6 +21,10 @@ declare global {
       platform: string;
       projectOpen: () => Promise<{token: string; name: string; bytes: Uint8Array} | null>;
       projectSave: (input: {token?: string; name: string; bytes: Uint8Array; saveAs: boolean}) => Promise<{token: string; name: string} | null>;
+      projectList: () => Promise<{projects: {id: string; path: string; name: string; openedAt: string; missing: boolean}[]; fault: string | null}>;
+      projectOpenRef: (id: string) => Promise<{token: string; name: string; bytes: Uint8Array}>;
+      projectForgetRef: (id: string) => Promise<{removed: boolean}>;
+      projectRelocateRef: (id: string) => Promise<{token: string; name: string; bytes: Uint8Array} | null>;
       filePendingKind: () => Promise<'icmal' | 'ekap' | null>;
       filePendingTake: {
         (kind: 'icmal'): Promise<{token: string; name: string; bytes: Uint8Array} | null>;

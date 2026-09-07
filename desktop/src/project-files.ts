@@ -3,10 +3,11 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { digest, fileDigest, PROJECT_LIMIT, writeProject } from './project-file-store';
+import type { ProjectRegistry } from './project-registry';
 
 export type ProjectPayload = {token: string; name: string; bytes: Uint8Array};
 
-export function registerProjectFiles(window: BrowserWindow, origin: string) {
+export function registerProjectFiles(window: BrowserWindow, origin: string, registry: ProjectRegistry) {
   const grants = new Map<string, {path: string; hash: string}>();
   let busy = false;
   const filters = [{name: 'İcmal projesi', extensions: ['icmal']}];
@@ -26,6 +27,7 @@ export function registerProjectFiles(window: BrowserWindow, origin: string) {
     const bytes = await fs.readFile(target);
     if (bytes.length > PROJECT_LIMIT) throw new Error('Dosya boyut sınırını aşıyor.');
     const token = randomUUID(); grants.set(token, {path: target, hash: digest(bytes)});
+    await registry.remember(target);
     return {token, name: path.basename(target), bytes: new Uint8Array(bytes)};
   };
   register('project-open', async () => {
@@ -50,7 +52,31 @@ export function registerProjectFiles(window: BrowserWindow, origin: string) {
     const hash = await writeProject(target, data.bytes, expected);
     const token = randomUUID(); grants.set(token, {path: target, hash});
     if (data.token) grants.delete(data.token);
+    await registry.remember(target);
     return {token, name: path.basename(target)};
+  });
+  register('project-list', async () => registry.list());
+  register('project-open-ref', async input => {
+    const id = (input as {id?: string})?.id;
+    const entry = id ? await registry.find(id) : null;
+    if (!entry) throw new Error('Proje başvurusu bulunamadı.');
+    return readProject(entry.path);
+  });
+  register('project-forget-ref', async input => {
+    const id = (input as {id?: string})?.id;
+    // Removing a list entry must never touch the file on disk.
+    return {removed: id ? await registry.forget(id) : false};
+  });
+  register('project-relocate-ref', async input => {
+    const id = (input as {id?: string})?.id;
+    if (!id || !(await registry.find(id))) throw new Error('Proje başvurusu bulunamadı.');
+    const result = await dialog.showOpenDialog(window, {filters, properties: ['openFile']});
+    if (result.canceled) return null;
+    const target = result.filePaths[0];
+    if (path.extname(target).toLowerCase() !== '.icmal') throw new Error('Bir .icmal dosyası seçin.');
+    const payload = await readProject(target);
+    await registry.relocate(id, target);
+    return payload;
   });
   window.on('closed', () => grants.clear());
   // A .icmal file handed over by the shell still needs a save grant, so it is

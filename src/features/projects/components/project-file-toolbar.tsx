@@ -5,6 +5,7 @@ import { Button } from '@shared/components/ui/button';
 import { Input } from '@shared/components/ui/input';
 import { createProject, decodeProject, encodeProject, MAX_PROJECT_BYTES } from '../lib/icmal-file';
 import { useProjectSession } from './project-session';
+import { LocalProjectsDialog } from './local-projects-dialog';
 import type { CostRow } from '../../cost-estimate/types';
 import type { PercentageCostRow } from '../../percentage-cost/types';
 import { restoreCostRows, restorePercentageRows, storeCostRows, storePercentageRows } from '../lib/row-adapters';
@@ -17,6 +18,7 @@ export function ProjectFileToolbar(props: Props) {
   const {project, setProject, name, setName} = session;
   const desktop = useSyncExternalStore(() => () => {}, () => !!window.electronAPI?.projectSave, () => false);
   const [busy, setBusy] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const picker = useRef<HTMLInputElement>(null);
@@ -55,8 +57,8 @@ export function ProjectFileToolbar(props: Props) {
     finally { lock.current = false; setBusy(false); }
   }
 
-  async function openFile(file?: File, handover?: {bytes: Uint8Array; token: string}) {
-    if ((!file && !handover && !desktop) || lock.current) return;
+  async function openFile(file?: File, handover?: {bytes: Uint8Array; token: string}): Promise<boolean> {
+    if ((!file && !handover && !desktop) || lock.current) return false;
     lock.current = true; setBusy(true); setError(''); setMessage('');
     try {
       let bytes: Uint8Array, token: string | undefined;
@@ -64,7 +66,7 @@ export function ProjectFileToolbar(props: Props) {
         bytes = handover.bytes; token = handover.token;
       } else if (desktop && !file) {
         const selected = await window.electronAPI!.projectOpen();
-        if (!selected) return;
+        if (!selected) return false;
         bytes = selected.bytes; token = selected.token;
       } else {
         if (!file!.name.toLowerCase().endsWith('.icmal')) throw new Error('Lütfen bir .icmal dosyası seçin.');
@@ -74,14 +76,15 @@ export function ProjectFileToolbar(props: Props) {
       const loaded = await decodeProject(bytes);
       const costRows = restoreCostRows(loaded.costRows);
       const percentageRows = restorePercentageRows(loaded.percentageRows);
-      if (activeSession.current.dirty && !window.confirm('Kaydedilmemiş değişiklikler var. Dosyayı açıp mevcut çalışmayı değiştirmek istiyor musunuz?')) return;
+      if (activeSession.current.dirty && !window.confirm('Kaydedilmemiş değişiklikler var. Dosyayı açıp mevcut çalışmayı değiştirmek istiyor musunuz?')) return false;
       session.setCostRows(costRows); session.setPercentageRows(percentageRows);
       session.setGeneration(n => n + 1); session.setToken(token);
       setProject(loaded); setName(loaded.name);
       session.setBaseline(JSON.stringify({name: loaded.name, costRows: storeCostRows(costRows), percentageRows: storePercentageRows(percentageRows)}));
       if (props.kind === 'cost') props.onOpen(costRows); else props.onOpen(percentageRows);
       setMessage('Dosya açıldı.');
-    } catch (e) { setError(e instanceof Error ? e.message : 'Dosya açılamadı.'); }
+      return true;
+    } catch (e) { setError(e instanceof Error ? e.message : 'Dosya açılamadı.'); return false; }
     finally { lock.current = false; setBusy(false); if (picker.current) picker.current.value = ''; }
   }
   async function exportFile(saveAs = false) {
@@ -141,10 +144,13 @@ export function ProjectFileToolbar(props: Props) {
     <input ref={picker} type="file" accept=".icmal" aria-label="İcmal dosyası" className="hidden" onChange={e => void openFile(e.target.files?.[0])} />
     <Button variant="outline" disabled={busy} onClick={() => void newLocalProject()}>{desktop ? 'Yeni yerel proje' : 'Yeni proje'}</Button>
     <Button variant="outline" disabled={busy} onClick={() => desktop ? void openFile() : picker.current?.click()}>Dosya aç</Button>
+    {desktop && <Button variant="outline" disabled={busy} onClick={() => setListOpen(true)}>Yerel projeler</Button>}
     <Button variant="outline" disabled={busy || !name.trim()} onClick={() => void exportFile()}>{desktop ? 'Kaydet' : 'Dışa aktar'}</Button>
     {desktop && <Button variant="outline" disabled={busy || !name.trim()} onClick={() => void exportFile(true)}>Farklı kaydet</Button>}
     {session.dirty && <span className="text-muted-foreground text-sm">Kaydedilmemiş değişiklikler</span>}
     {busy && <span role="status" className="text-sm">Dosya işleniyor…</span>}
     {error ? <span role="alert" className="text-destructive text-sm">{error}</span> : <span role="status" className="text-muted-foreground text-sm">{message}</span>}
+    {desktop && <LocalProjectsDialog open={listOpen} onOpenChange={setListOpen}
+      onOpen={payload => openAction.current(undefined, payload)} />}
   </div>;
 }
