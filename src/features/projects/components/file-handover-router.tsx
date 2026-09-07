@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 // Routes whose screen collects a handed-over file. The first entry is where a
 // handover is sent when the user is somewhere else.
 const CONSUMERS = {
-  icmal: ['/yaklasik-maliyet', '/maliyet-sihirbazi'],
+  icmal: ['/yaklasik-maliyet', '/maliyet-sihirbazi', '/yerel'],
   ekap: ['/editor'],
 } as const;
 

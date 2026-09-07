@@ -1,5 +1,6 @@
 import { LoginForm } from '@features/auth/components/login-form';
 import { BrandLogo } from '@shared/components/brand-logo';
+import { LocalWorkLink } from '@features/auth/components/local-work-link';
 
 export default function LoginPage() {
   return (
@@ -13,6 +14,7 @@ export default function LoginPage() {
           <p className="text-muted-foreground mt-2 text-sm">İcmal hesabınıza giriş yapın</p>
         </div>
         <LoginForm />
+        <LocalWorkLink />
       </div>
     </div>
   );
