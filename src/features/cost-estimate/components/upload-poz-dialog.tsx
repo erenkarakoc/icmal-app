@@ -1,5 +1,6 @@
 'use client';
 
+import { satirTutari } from '@shared/lib/para';
 import React, { useState, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import {
@@ -367,7 +368,7 @@ export function UploadPozDialog({ open, onOpenChange, onApply }: UploadPozDialog
                             {formatTurkishNumber(row.unitPrice)}
                           </td>
                           <td className="px-3 py-2 text-right font-mono font-medium">
-                            {formatTurkishNumber(row.quantity.times(row.unitPrice))}
+                            {formatTurkishNumber(satirTutari(row.quantity, row.unitPrice))}
                           </td>
                         </tr>
                       ))}

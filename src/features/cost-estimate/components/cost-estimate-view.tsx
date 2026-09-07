@@ -1,5 +1,6 @@
 'use client';
 
+import { satirTutari } from '@shared/lib/para';
 import React, { useState, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
 import { Plus, Search, FileSpreadsheet } from 'lucide-react';
 
@@ -7,7 +8,10 @@ import { useProjectSession } from '@features/projects/components/project-session
 import { ProjectFileToolbar } from '@features/projects/components/project-file-toolbar';
 import { ExpensesPanel } from '@features/projects/components/expenses-panel';
 import { OfferPanel } from '@features/projects/components/offer-panel';
-import { giderleriHesapla, toplamMaliyet as toplamMaliyetHesapla } from '@features/projects/lib/giderler';
+import {
+  giderleriHesapla,
+  toplamMaliyet as toplamMaliyetHesapla,
+} from '@features/projects/lib/giderler';
 import { Button } from '@shared/components/ui/button';
 import { Input } from '@shared/components/ui/input';
 import { formatTurkishNumber } from '@shared/lib/turkish-number';
@@ -62,30 +66,36 @@ export function CostEstimateView() {
   const addRow = useCallback(() => {
     const newRow = createEmptyRow(0);
     setFocusedRowId(newRow.id);
-    setRows(prev => [...prev, {...newRow, rowNumber: prev.length + 1}]);
+    setRows((prev) => [...prev, { ...newRow, rowNumber: prev.length + 1 }]);
   }, [setRows]);
 
-  const deleteRow = useCallback((id: string) => {
-    setRows((prev) => recalculateRowNumbers(prev.filter((r) => r.id !== id)));
-  }, [setRows]);
+  const deleteRow = useCallback(
+    (id: string) => {
+      setRows((prev) => recalculateRowNumbers(prev.filter((r) => r.id !== id)));
+    },
+    [setRows],
+  );
 
-  const updateRow = useCallback((id: string, updates: Partial<CostRow>) => {
-    setRows((prev) =>
-      prev.map((row) => {
-        if (row.id !== id) return row;
-        const updated = { ...row, ...updates };
-        if ('pozNo' in updates && !('source' in updates)) {
-          updated.source = undefined;
-          updated.fromDatabase = false;
-        }
-        // Recalculate total when quantity or unitPrice changes
-        if ('quantity' in updates || 'unitPrice' in updates) {
-          updated.total = updated.quantity.times(updated.unitPrice);
-        }
-        return updated;
-      }),
-    );
-  }, [setRows]);
+  const updateRow = useCallback(
+    (id: string, updates: Partial<CostRow>) => {
+      setRows((prev) =>
+        prev.map((row) => {
+          if (row.id !== id) return row;
+          const updated = { ...row, ...updates };
+          if ('pozNo' in updates && !('source' in updates)) {
+            updated.source = undefined;
+            updated.fromDatabase = false;
+          }
+          // Recalculate total when quantity or unitPrice changes
+          if ('quantity' in updates || 'unitPrice' in updates) {
+            updated.total = satirTutari(updated.quantity, updated.unitPrice);
+          }
+          return updated;
+        }),
+      );
+    },
+    [setRows],
+  );
 
   const handlePozSelect = useCallback(
     (id: string, entry: PozEntry) => {
@@ -116,22 +126,25 @@ export function CostEstimateView() {
     setColumnWidths((prev) => ({ ...prev, [key]: Math.max(40, width) }));
   }, []);
 
-  const handleImportApply = useCallback((importedRows: ImportedRow[]) => {
-    setRows((prev) => {
-      const newRows: CostRow[] = importedRows.map((r, i) => ({
-        id: crypto.randomUUID(),
-        rowNumber: prev.length + i + 1,
-        pozNo: r.pozNo,
-        description: r.description,
-        unit: r.unit,
-        quantity: r.quantity,
-        unitPrice: r.unitPrice,
-        total: r.quantity.times(r.unitPrice),
-        fromDatabase: false,
-      }));
-      return [...prev, ...newRows];
-    });
-  }, [setRows]);
+  const handleImportApply = useCallback(
+    (importedRows: ImportedRow[]) => {
+      setRows((prev) => {
+        const newRows: CostRow[] = importedRows.map((r, i) => ({
+          id: crypto.randomUUID(),
+          rowNumber: prev.length + i + 1,
+          pozNo: r.pozNo,
+          description: r.description,
+          unit: r.unit,
+          quantity: r.quantity,
+          unitPrice: r.unitPrice,
+          total: satirTutari(r.quantity, r.unitPrice),
+          fromDatabase: false,
+        }));
+        return [...prev, ...newRows];
+      });
+    },
+    [setRows],
+  );
 
   const filteredAndSortedRows = useMemo(() => {
     let result = rows;
@@ -178,10 +191,17 @@ export function CostEstimateView() {
 
   return (
     <div data-project-editor className="flex h-full flex-col">
-      <ProjectFileToolbar kind="cost" rows={rows} onOpen={loaded => {
-        setRows(loaded); setFileRevision(n => n + 1); setSearchQuery(''); setFocusedRowId(null);
-        setSortConfig({key: null, direction: null});
-      }} />
+      <ProjectFileToolbar
+        kind="cost"
+        rows={rows}
+        onOpen={(loaded) => {
+          setRows(loaded);
+          setFileRevision((n) => n + 1);
+          setSearchQuery('');
+          setFocusedRowId(null);
+          setSortConfig({ key: null, direction: null });
+        }}
+      />
       {/* Toolbar */}
       <div className="items-between bg-muted/20 flex flex-col justify-between space-y-2 border-b px-4 py-2 md:flex-row md:items-center md:space-y-0">
         <div className="flex items-center gap-4">

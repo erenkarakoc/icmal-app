@@ -134,10 +134,8 @@ export function ProjectFileToolbar(props: Props) {
           ? {offer: storeTeklif(session.teklifYontemi, session.sabitTeklifler)} : {})};
       const savedFingerprint = session.fingerprint;
       const bytes = await encodeProject(snapshot);
-      // Listeleme ozeti. Toplam mevcut satir tutarlarindan gelir; K-10'un
-      // yuvarlama sozlesmesi (satir 2 ondalik, toplam yuvarlanmis satirlardan)
-      // henuz TEMEL-05'te uygulanmadigi icin bu deger o sozlesmeden GECMEZ.
-      // TEMEL-05 bitince buradaki hesap da ondan gecmeli.
+      // Listeleme ozeti. Toplam K-10 sozlesmesinden gecer: calculateGrandTotal
+      // yuvarlanmis satir tutarlarini toplar (TEMEL-05.1).
       const ozet = {
         kalemSayisi: snapshot.costRows.length + snapshot.percentageRows.length,
         toplamTutar: session.costRows.length ? calculateGrandTotal(session.costRows).toFixed(2) : null,

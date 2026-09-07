@@ -1,5 +1,6 @@
 'use client';
 
+import { satirTutari } from '@shared/lib/para';
 import React, { useState, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
 import { Plus, Search, FileSpreadsheet } from 'lucide-react';
 import Decimal from 'decimal.js';
@@ -73,43 +74,49 @@ export function PercentageCostView() {
   const addRow = useCallback(() => {
     const newRow = createEmptyRow(0);
     setFocusedRowId(newRow.id);
-    setRows(prev => [...prev, {...newRow, rowNumber: prev.length + 1}]);
+    setRows((prev) => [...prev, { ...newRow, rowNumber: prev.length + 1 }]);
   }, [setRows]);
 
-  const deleteRow = useCallback((id: string) => {
-    setRows((prev) => recalculateRowNumbers(prev.filter((r) => r.id !== id)));
-  }, [setRows]);
+  const deleteRow = useCallback(
+    (id: string) => {
+      setRows((prev) => recalculateRowNumbers(prev.filter((r) => r.id !== id)));
+    },
+    [setRows],
+  );
 
-  const updateRow = useCallback((id: string, updates: Partial<PercentageCostRow>) => {
-    setRows((prev) =>
-      prev.map((row) => {
-        if (row.id !== id) return row;
-        const updated = { ...row, ...updates };
-        if ('pozNo' in updates && !('source' in updates)) {
-          updated.source = undefined;
-          updated.fromDatabase = false;
-        }
-        // Recalculate total when quantity or unitPrice changes
-        if ('quantity' in updates || 'unitPrice' in updates) {
-          updated.total = updated.quantity.times(updated.unitPrice);
-        }
-        // Recalculate estimatedCost when total, percentageLow, or percentageHigh changes
-        if (
-          'quantity' in updates ||
-          'unitPrice' in updates ||
-          'percentageLow' in updates ||
-          'percentageHigh' in updates
-        ) {
-          const effectivePct = getEffectivePercentage(
-            updated.percentageLow,
-            updated.percentageHigh,
-          );
-          updated.estimatedCost = calculateEstimatedCost(updated.total, effectivePct);
-        }
-        return updated;
-      }),
-    );
-  }, [setRows]);
+  const updateRow = useCallback(
+    (id: string, updates: Partial<PercentageCostRow>) => {
+      setRows((prev) =>
+        prev.map((row) => {
+          if (row.id !== id) return row;
+          const updated = { ...row, ...updates };
+          if ('pozNo' in updates && !('source' in updates)) {
+            updated.source = undefined;
+            updated.fromDatabase = false;
+          }
+          // Recalculate total when quantity or unitPrice changes
+          if ('quantity' in updates || 'unitPrice' in updates) {
+            updated.total = satirTutari(updated.quantity, updated.unitPrice);
+          }
+          // Recalculate estimatedCost when total, percentageLow, or percentageHigh changes
+          if (
+            'quantity' in updates ||
+            'unitPrice' in updates ||
+            'percentageLow' in updates ||
+            'percentageHigh' in updates
+          ) {
+            const effectivePct = getEffectivePercentage(
+              updated.percentageLow,
+              updated.percentageHigh,
+            );
+            updated.estimatedCost = calculateEstimatedCost(updated.total, effectivePct);
+          }
+          return updated;
+        }),
+      );
+    },
+    [setRows],
+  );
 
   const handlePozSelect = useCallback(
     (id: string, entry: PozEntry) => {
@@ -125,21 +132,24 @@ export function PercentageCostView() {
     [updateRow],
   );
 
-  const handleToggleRange = useCallback((id: string) => {
-    setRows((prev) =>
-      prev.map((row) => {
-        if (row.id !== id) return row;
-        const newUseRange = !row.useRange;
-        if (!newUseRange) {
-          // Switching back to single: clear percentageHigh and recalculate
-          const effectivePct = getEffectivePercentage(row.percentageLow, new Decimal(0));
-          const estimatedCost = calculateEstimatedCost(row.total, effectivePct);
-          return { ...row, useRange: false, percentageHigh: new Decimal(0), estimatedCost };
-        }
-        return { ...row, useRange: true };
-      }),
-    );
-  }, [setRows]);
+  const handleToggleRange = useCallback(
+    (id: string) => {
+      setRows((prev) =>
+        prev.map((row) => {
+          if (row.id !== id) return row;
+          const newUseRange = !row.useRange;
+          if (!newUseRange) {
+            // Switching back to single: clear percentageHigh and recalculate
+            const effectivePct = getEffectivePercentage(row.percentageLow, new Decimal(0));
+            const estimatedCost = calculateEstimatedCost(row.total, effectivePct);
+            return { ...row, useRange: false, percentageHigh: new Decimal(0), estimatedCost };
+          }
+          return { ...row, useRange: true };
+        }),
+      );
+    },
+    [setRows],
+  );
 
   const handleSort = useCallback((key: PercentageCostSortKey) => {
     setSortConfig((prev) => ({
@@ -159,26 +169,29 @@ export function PercentageCostView() {
     setColumnWidths((prev) => ({ ...prev, [key]: Math.max(40, width) }));
   }, []);
 
-  const handleImportApply = useCallback((importedRows: ImportedRow[]) => {
-    setRows((prev) => {
-      const newRows: PercentageCostRow[] = importedRows.map((r, i) => ({
-        id: crypto.randomUUID(),
-        rowNumber: prev.length + i + 1,
-        pozNo: r.pozNo,
-        description: r.description,
-        unit: r.unit,
-        quantity: r.quantity,
-        unitPrice: r.unitPrice,
-        total: r.quantity.times(r.unitPrice),
-        percentageLow: new Decimal(0),
-        percentageHigh: new Decimal(0),
-        estimatedCost: new Decimal(0),
-        useRange: false,
-        fromDatabase: false,
-      }));
-      return [...prev, ...newRows];
-    });
-  }, [setRows]);
+  const handleImportApply = useCallback(
+    (importedRows: ImportedRow[]) => {
+      setRows((prev) => {
+        const newRows: PercentageCostRow[] = importedRows.map((r, i) => ({
+          id: crypto.randomUUID(),
+          rowNumber: prev.length + i + 1,
+          pozNo: r.pozNo,
+          description: r.description,
+          unit: r.unit,
+          quantity: r.quantity,
+          unitPrice: r.unitPrice,
+          total: satirTutari(r.quantity, r.unitPrice),
+          percentageLow: new Decimal(0),
+          percentageHigh: new Decimal(0),
+          estimatedCost: new Decimal(0),
+          useRange: false,
+          fromDatabase: false,
+        }));
+        return [...prev, ...newRows];
+      });
+    },
+    [setRows],
+  );
 
   const filteredAndSortedRows = useMemo(() => {
     let result = rows;
@@ -224,10 +237,17 @@ export function PercentageCostView() {
 
   return (
     <div data-project-editor className="flex h-full flex-col">
-      <ProjectFileToolbar kind="percentage" rows={rows} onOpen={loaded => {
-        setRows(loaded); setFileRevision(n => n + 1); setSearchQuery(''); setFocusedRowId(null);
-        setSortConfig({key: null, direction: null});
-      }} />
+      <ProjectFileToolbar
+        kind="percentage"
+        rows={rows}
+        onOpen={(loaded) => {
+          setRows(loaded);
+          setFileRevision((n) => n + 1);
+          setSearchQuery('');
+          setFocusedRowId(null);
+          setSortConfig({ key: null, direction: null });
+        }}
+      />
       {/* Toolbar */}
       <div className="items-between bg-muted/20 flex flex-col justify-between space-y-2 border-b px-4 py-2 md:flex-row md:items-center md:space-y-0">
         <div className="flex items-center gap-4">
