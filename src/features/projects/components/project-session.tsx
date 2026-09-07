@@ -12,6 +12,8 @@ type Session = {
   project: IcmalProject | null; setProject: Dispatch<SetStateAction<IcmalProject | null>>;
   name: string; setName: Dispatch<SetStateAction<string>>;
   token: string | undefined; setToken: Dispatch<SetStateAction<string | undefined>>;
+  /** Acik proje hesaba kayitliysa kimligi; yerel dosyada undefined kalir. */
+  hesapProjeId: string | undefined; setHesapProjeId: Dispatch<SetStateAction<string | undefined>>;
   generation: number; setGeneration: Dispatch<SetStateAction<number>>;
   fingerprint: string; setBaseline: Dispatch<SetStateAction<string>>; dirty: boolean;
 };
@@ -22,6 +24,7 @@ export function ProjectSessionProvider({children}: {children: ReactNode}) {
   const [project, setProject] = useState<IcmalProject | null>(null);
   const [name, setName] = useState('Yeni proje');
   const [token, setToken] = useState<string>();
+  const [hesapProjeId, setHesapProjeId] = useState<string>();
   const [generation, setGeneration] = useState(0);
   const fingerprint = useMemo(() => JSON.stringify({name, costRows: storeCostRows(costRows),
     percentageRows: storePercentageRows(percentageRows)}), [name, costRows, percentageRows]);
@@ -38,7 +41,7 @@ export function ProjectSessionProvider({children}: {children: ReactNode}) {
     return () => window.removeEventListener('beforeunload', prevent);
   }, [dirty]);
   return <Context.Provider value={{costRows,setCostRows,percentageRows,setPercentageRows,project,setProject,
-    name,setName,token,setToken,generation,setGeneration,fingerprint,setBaseline,dirty}}>{children}</Context.Provider>;
+    name,setName,token,setToken,hesapProjeId,setHesapProjeId,generation,setGeneration,fingerprint,setBaseline,dirty}}>{children}</Context.Provider>;
 }
 export function useProjectSession() {
   const value = useContext(Context);

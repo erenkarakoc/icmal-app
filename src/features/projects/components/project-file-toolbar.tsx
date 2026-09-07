@@ -3,12 +3,15 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Button } from '@shared/components/ui/button';
 import { Input } from '@shared/components/ui/input';
-import { createProject, decodeProject, encodeProject, MAX_PROJECT_BYTES } from '../lib/icmal-file';
+import { createProject, encodeProject, MAX_PROJECT_BYTES } from '../lib/icmal-file';
 import { useProjectSession } from './project-session';
 import { LocalProjectsDialog } from './local-projects-dialog';
+import { useProjectLoader } from './use-project-loader';
+import { calculateGrandTotal } from '../../cost-estimate/lib/cost-utils';
+import { projeGuncelle, projeOlustur } from '../actions';
 import type { CostRow } from '../../cost-estimate/types';
 import type { PercentageCostRow } from '../../percentage-cost/types';
-import { restoreCostRows, restorePercentageRows, storeCostRows, storePercentageRows } from '../lib/row-adapters';
+import { storeCostRows, storePercentageRows } from '../lib/row-adapters';
 
 type Props = {kind: 'cost'; rows: CostRow[]; onOpen: (rows: CostRow[]) => void} |
   {kind: 'percentage'; rows: PercentageCostRow[]; onOpen: (rows: PercentageCostRow[]) => void};
@@ -24,6 +27,7 @@ export function ProjectFileToolbar(props: Props) {
   const picker = useRef<HTMLInputElement>(null);
   const activeSession = useRef(session); activeSession.current = session;
   const lock = useRef(false);
+  const projeYukle = useProjectLoader();
 
   async function newLocalProject() {
     if (lock.current) return;
@@ -73,15 +77,13 @@ export function ProjectFileToolbar(props: Props) {
         if (file!.size > MAX_PROJECT_BYTES) throw new Error('Proje dosyası boyut sınırını aşıyor.');
         bytes = new Uint8Array(await file!.arrayBuffer());
       }
-      const loaded = await decodeProject(bytes);
-      const costRows = restoreCostRows(loaded.costRows);
-      const percentageRows = restorePercentageRows(loaded.percentageRows);
-      if (activeSession.current.dirty && !window.confirm('Kaydedilmemiş değişiklikler var. Dosyayı açıp mevcut çalışmayı değiştirmek istiyor musunuz?')) return false;
-      session.setCostRows(costRows); session.setPercentageRows(percentageRows);
-      session.setGeneration(n => n + 1); session.setToken(token);
-      setProject(loaded); setName(loaded.name);
-      session.setBaseline(JSON.stringify({name: loaded.name, costRows: storeCostRows(costRows), percentageRows: storePercentageRows(percentageRows)}));
-      if (props.kind === 'cost') props.onOpen(costRows); else props.onOpen(percentageRows);
+      const yuklendi = await projeYukle(bytes, {
+        token,
+        onRows: (cost, percentage) => {
+          if (props.kind === 'cost') props.onOpen(cost); else props.onOpen(percentage);
+        },
+      });
+      if (!yuklendi) return false;
       setMessage('Dosya açıldı.');
       return true;
     } catch (e) { setError(e instanceof Error ? e.message : 'Dosya açılamadı.'); return false; }
@@ -112,6 +114,39 @@ export function ProjectFileToolbar(props: Props) {
     } catch (e) { setError(e instanceof Error ? e.message : 'Dosya kaydedilemedi.'); }
     finally { lock.current = false; setBusy(false); }
   }
+  /**
+   * Hesaba kaydeder. Acik proje zaten hesaba kayitliysa uzerine yazar
+   * (surumleme yok, K-15); degilse yeni proje olusturur ve kota denetimi
+   * sunucuda calisir.
+   */
+  async function hesabaKaydet() {
+    if (lock.current) return;
+    lock.current = true; setBusy(true); setError(''); setMessage('');
+    try {
+      const base = project ?? createProject(name);
+      const snapshot = {...base, name, updatedAt: new Date().toISOString(),
+        costRows: storeCostRows(session.costRows), percentageRows: storePercentageRows(session.percentageRows)};
+      const savedFingerprint = session.fingerprint;
+      const bytes = await encodeProject(snapshot);
+      // Listeleme ozeti. Toplam mevcut satir tutarlarindan gelir; K-10'un
+      // yuvarlama sozlesmesi (satir 2 ondalik, toplam yuvarlanmis satirlardan)
+      // henuz TEMEL-05'te uygulanmadigi icin bu deger o sozlesmeden GECMEZ.
+      // TEMEL-05 bitince buradaki hesap da ondan gecmeli.
+      const ozet = {
+        kalemSayisi: snapshot.costRows.length + snapshot.percentageRows.length,
+        toplamTutar: session.costRows.length ? calculateGrandTotal(session.costRows).toFixed(2) : null,
+      };
+      const sonuc = session.hesapProjeId
+        ? await projeGuncelle(session.hesapProjeId, name, bytes, ozet)
+        : await projeOlustur(name, bytes, ozet);
+      session.setHesapProjeId(sonuc.id);
+      session.setBaseline(savedFingerprint);
+      setProject(snapshot);
+      setMessage(session.hesapProjeId ? 'Hesaba kaydedildi.' : 'Hesaba yeni proje olarak kaydedildi.');
+    } catch (e) { setError(e instanceof Error ? e.message : 'Hesaba kaydedilemedi.'); }
+    finally { lock.current = false; setBusy(false); }
+  }
+
   const saveAction = useRef(exportFile); saveAction.current = exportFile;
   const openAction = useRef(openFile); openAction.current = openFile;
   // A .icmal file opened from the OS waits in the main process until this mounts.
@@ -147,6 +182,7 @@ export function ProjectFileToolbar(props: Props) {
     {desktop && <Button variant="outline" disabled={busy} onClick={() => setListOpen(true)}>Yerel projeler</Button>}
     <Button variant="outline" disabled={busy || !name.trim()} onClick={() => void exportFile()}>{desktop ? 'Kaydet' : 'Dışa aktar'}</Button>
     {desktop && <Button variant="outline" disabled={busy || !name.trim()} onClick={() => void exportFile(true)}>Farklı kaydet</Button>}
+    <Button variant="outline" disabled={busy || !name.trim()} onClick={() => void hesabaKaydet()}>Hesaba kaydet</Button>
     {session.dirty && <span className="text-muted-foreground text-sm">Kaydedilmemiş değişiklikler</span>}
     {busy && <span role="status" className="text-sm">Dosya işleniyor…</span>}
     {error ? <span role="alert" className="text-destructive text-sm">{error}</span> : <span role="status" className="text-muted-foreground text-sm">{message}</span>}

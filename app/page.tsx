@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { AccountProjectsSection } from '@features/projects/components/account-projects-section';
 import { LocalProjectsSection } from '@features/projects/components/local-projects-section';
 import {
   FileText,
@@ -80,6 +81,7 @@ export default function HomePage() {
             ))}
           </div>
 
+          <AccountProjectsSection />
           <LocalProjectsSection />
         </div>
       </div>
