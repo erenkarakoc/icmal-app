@@ -21,14 +21,39 @@ import { projeAnahtari, projeIndir, projeSil, projeYukle } from './lib/r2';
 
 type Ozet = { kalemSayisi: number; toplamTutar: string | null; paraBirimi?: string };
 
+/** Sunucu eyleminin sonucu: basari degeriyle ya da okunabilir hata mesajiyla. */
+export type Sonuc<T> = { tamam: true; veri: T } | { tamam: false; hata: string };
+
+/**
+ * Eylem sinirinda hatayi DEGERE cevirir.
+ *
+ * Uretim derlemesinde Next atilan hatanin mesajini istemciye vermez; yerine bir
+ * "digest" gonderir ve React bunu asgari hata (#441) olarak gunluge yazar.
+ * Kullanicinin gordugu tek sey genel bir cumle olur, hatanin ne oldugu kaybolur.
+ * Bu yuzden beklenen basarisizliklar -- oturum yok, kota doldu, yapilandirma
+ * eksik, R2 yazamadi -- ATILMAZ, dondurulur. Sunucu gunlugune yine tam hali
+ * yazilir.
+ */
+async function sarmala<T>(is: () => Promise<T>): Promise<Sonuc<T>> {
+  try {
+    return { tamam: true, veri: await is() };
+  } catch (hata) {
+    console.error('[proje eylemi]', hata);
+    return {
+      tamam: false,
+      hata: hata instanceof Error ? hata.message : 'Beklenmeyen bir hata olustu.',
+    };
+  }
+}
+
 async function oturum() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Bu islem icin giris yapmalisiniz.');
+  if (!user) throw new Error('Bu işlem için giriş yapmalısınız.');
   return { supabase, user };
 }
 
-export async function projeKotasi(): Promise<{ sinir: number; kullanilan: number; kalan: number }> {
+async function kotayiOku(): Promise<{ sinir: number; kullanilan: number; kalan: number }> {
   const { supabase } = await oturum();
   const { data, error } = await supabase.rpc('proje_kotasi').single();
   if (error) throw new Error(error.message);
@@ -36,7 +61,7 @@ export async function projeKotasi(): Promise<{ sinir: number; kullanilan: number
   return { sinir: r.sinir, kullanilan: r.kullanilan, kalan: r.kalan };
 }
 
-export async function projeleriListele() {
+async function listeyiOku() {
   const { supabase } = await oturum();
   // RLS zaten sahibe daraltir; siralamayi indeks karsilar.
   const { data, error } = await supabase
@@ -48,7 +73,7 @@ export async function projeleriListele() {
 }
 
 /** Yeni hesap projesi olusturur. Kota denetimi veritabani tetikleyicisindedir. */
-export async function projeOlustur(ad: string, bytes: Uint8Array, ozet: Ozet) {
+async function olustur(ad: string, bytes: Uint8Array, ozet: Ozet) {
   if (!bytes.length) throw new Error('Bos proje kaydedilemez.');
   if (bytes.length > MAX_PROJECT_BYTES) throw new Error('Proje dosyasi boyut sinirini asiyor.');
 
@@ -88,7 +113,7 @@ export async function projeOlustur(ad: string, bytes: Uint8Array, ozet: Ozet) {
 }
 
 /** Mevcut projenin uzerine yazar. Surumleme yoktur (K-15). */
-export async function projeGuncelle(id: string, ad: string, bytes: Uint8Array, ozet: Ozet) {
+async function guncelle(id: string, ad: string, bytes: Uint8Array, ozet: Ozet) {
   if (!bytes.length) throw new Error('Bos proje kaydedilemez.');
   if (bytes.length > MAX_PROJECT_BYTES) throw new Error('Proje dosyasi boyut sinirini asiyor.');
 
@@ -116,7 +141,7 @@ export async function projeGuncelle(id: string, ad: string, bytes: Uint8Array, o
   return { id, ad: ad.trim() };
 }
 
-export async function projeAc(id: string): Promise<{ ad: string; bytes: Uint8Array }> {
+async function ac(id: string): Promise<{ ad: string; bytes: Uint8Array }> {
   const { supabase } = await oturum();
   const { data, error } = await supabase
     .from('projeler')
@@ -133,7 +158,7 @@ export async function projeAc(id: string): Promise<{ ad: string; bytes: Uint8Arr
  * Projeyi siler. K-15: silme bir hak acar, geri alinamaz. Once satir silinir
  * ki hak hemen acilsin; R2 nesnesi ardindan temizlenir.
  */
-export async function projeyiSil(id: string) {
+async function sil(id: string) {
   const { supabase } = await oturum();
   const { data, error } = await supabase
     .from('projeler')
@@ -149,4 +174,32 @@ export async function projeyiSil(id: string) {
   // engellemez ve kota hakki acilmis olur.
   await projeSil(data.depolama_anahtari).catch(() => {});
   return { id };
+}
+
+// --- Eylem siniri -----------------------------------------------------------
+// Istemcinin gordugu yuzey burasidir. Yukaridaki islevler hata ATAR; asagidaki
+// disa acilan eylemler o hatayi mesaja cevirir (bkz. `sarmala`).
+
+export async function projeKotasi() {
+  return sarmala(kotayiOku);
+}
+
+export async function projeleriListele() {
+  return sarmala(listeyiOku);
+}
+
+export async function projeOlustur(ad: string, bytes: Uint8Array, ozet: Ozet) {
+  return sarmala(() => olustur(ad, bytes, ozet));
+}
+
+export async function projeGuncelle(id: string, ad: string, bytes: Uint8Array, ozet: Ozet) {
+  return sarmala(() => guncelle(id, ad, bytes, ozet));
+}
+
+export async function projeAc(id: string) {
+  return sarmala(() => ac(id));
+}
+
+export async function projeyiSil(id: string) {
+  return sarmala(() => sil(id));
 }

@@ -145,7 +145,10 @@ export function ProjectFileToolbar(props: Props) {
       const sonuc = session.hesapProjeId
         ? await projeGuncelle(session.hesapProjeId, name, bytes, ozet)
         : await projeOlustur(name, bytes, ozet);
-      session.setHesapProjeId(sonuc.id);
+      // Eylem hatayi atmaz, dondurur: uretim derlemesinde atilan hatanin mesaji
+      // istemciye ulasmaz ve kullanici sebebi goremezdi.
+      if (!sonuc.tamam) { setError(sonuc.hata); return; }
+      session.setHesapProjeId(sonuc.veri.id);
       session.setBaseline(savedFingerprint);
       setProject(snapshot);
       setMessage(session.hesapProjeId ? 'Hesaba kaydedildi.' : 'Hesaba yeni proje olarak kaydedildi.');
