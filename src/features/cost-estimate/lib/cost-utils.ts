@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js';
-import { kalemlerToplami } from '@shared/lib/para';
+import { kalemlerToplami } from '../../../shared/lib/para.ts';
 import type { CostRow } from '../types';
 
 export function createEmptyRow(rowNumber: number): CostRow {

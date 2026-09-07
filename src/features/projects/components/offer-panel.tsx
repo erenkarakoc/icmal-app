@@ -6,6 +6,7 @@ import { Button } from '@shared/components/ui/button';
 import { Input } from '@shared/components/ui/input';
 import { useProjectSession } from './project-session';
 import { karHesapla, teklifiDagit, teklifBirimFiyati } from '../lib/teklif';
+import { gorunumDegeri } from '@shared/lib/para';
 import type { KarYontemi, TeklifKalemi } from '../lib/teklif';
 import type { CostRow } from '../../cost-estimate/types';
 
@@ -26,7 +27,8 @@ const YONTEMLER: { tur: KarYontemi['tur']; etiket: string; birim: string }[] = [
  * değiştirmek önceki değeri devralmaz.
  */
 export function OfferPanel({ toplamMaliyet, rows }: { toplamMaliyet: Decimal; rows: CostRow[] }) {
-  const { teklifYontemi, setTeklifYontemi, sabitTeklifler, setSabitTeklifler } = useProjectSession();
+  const { teklifYontemi, setTeklifYontemi, sabitTeklifler, setSabitTeklifler } =
+    useProjectSession();
 
   const hesap = useMemo(() => {
     if (!teklifYontemi) return null;
@@ -34,12 +36,21 @@ export function OfferPanel({ toplamMaliyet, rows }: { toplamMaliyet: Decimal; ro
     const kalemler: TeklifKalemi[] = rows.map((r) => ({
       id: r.id,
       maliyet: r.total,
-      ...(sabitTeklifler[r.id] !== undefined ? { sabitTutar: new Decimal(sabitTeklifler[r.id] || '0') } : {}),
+      ...(sabitTeklifler[r.id] !== undefined
+        ? { sabitTutar: new Decimal(sabitTeklifler[r.id] || '0') }
+        : {}),
     }));
     return { kar, dagitim: teklifiDagit(kalemler, kar.teklif) };
   }, [toplamMaliyet, rows, teklifYontemi, sabitTeklifler]);
 
   const tl = (d: Decimal) => d.toFixed(2);
+
+  /**
+   * Birim fiyat tutar değildir: K-10 normal görünümde en çok 6 ondalık ister.
+   * Kuruşa indirmek dağıtımdan çıkan birim fiyatı anlamsızlaştırırdı — 33,34 TL
+   * / 7 adet gibi bir kalemde 4,76 ile 4,762857 arasındaki fark kaybolurdu.
+   */
+  const birimGoster = (d: Decimal) => gorunumDegeri(d).toString().replace('.', ',');
 
   const sabitle = (row: CostRow, tutar: Decimal) =>
     setSabitTeklifler((s) => ({ ...s, [row.id]: tutar.toFixed(2) }));
@@ -87,7 +98,8 @@ export function OfferPanel({ toplamMaliyet, rows }: { toplamMaliyet: Decimal; ro
 
       {!teklifYontemi ? (
         <p className="text-muted-foreground text-sm">
-          Kâr yöntemi seçilmedi. Teklif hesaplanmaz, toplam maliyet {tl(toplamMaliyet)} TL olarak kalır.
+          Kâr yöntemi seçilmedi. Teklif hesaplanmaz, toplam maliyet {tl(toplamMaliyet)} TL olarak
+          kalır.
         </p>
       ) : (
         <>
@@ -97,9 +109,7 @@ export function OfferPanel({ toplamMaliyet, rows }: { toplamMaliyet: Decimal; ro
               <dd>{tl(hesap!.kar.toplamMaliyet)} TL</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-muted-foreground">
-                {hesap!.kar.zarar ? 'Zarar' : 'Kâr'}
-              </dt>
+              <dt className="text-muted-foreground">{hesap!.kar.zarar ? 'Zarar' : 'Kâr'}</dt>
               <dd className={hesap!.kar.zarar ? 'text-destructive' : undefined}>
                 {tl(hesap!.kar.zarar ?? hesap!.kar.kar)} TL
               </dd>
@@ -111,7 +121,9 @@ export function OfferPanel({ toplamMaliyet, rows }: { toplamMaliyet: Decimal; ro
           </dl>
 
           {hesap!.dagitim.uyari && (
-            <p role="alert" className="text-destructive mb-3 text-sm">{hesap!.dagitim.uyari}</p>
+            <p role="alert" className="text-destructive mb-3 text-sm">
+              {hesap!.dagitim.uyari}
+            </p>
           )}
 
           {rows.length === 0 ? (
@@ -127,11 +139,15 @@ export function OfferPanel({ toplamMaliyet, rows }: { toplamMaliyet: Decimal; ro
                       {row.pozNo || row.description || 'Adsız kalem'}
                     </span>
                     {/* Karar: sabit ve otomatik kalemler açıkça gösterilir. */}
-                    <span className={satir.sabit ? 'text-foreground text-xs' : 'text-muted-foreground text-xs'}>
+                    <span
+                      className={
+                        satir.sabit ? 'text-foreground text-xs' : 'text-muted-foreground text-xs'
+                      }
+                    >
                       {satir.sabit ? 'sabit' : 'otomatik'}
                     </span>
                     <span className="text-muted-foreground text-xs">
-                      birim {birim ? tl(birim) : '—'}
+                      birim {birim ? birimGoster(birim) : '—'}
                     </span>
                     <span className="w-32 text-right">{tl(satir.teklifTutari)} TL</span>
                     {satir.sabit ? (
@@ -139,7 +155,11 @@ export function OfferPanel({ toplamMaliyet, rows }: { toplamMaliyet: Decimal; ro
                         Sabiti kaldır
                       </Button>
                     ) : (
-                      <Button variant="ghost" size="sm" onClick={() => sabitle(row, satir.teklifTutari)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => sabitle(row, satir.teklifTutari)}
+                      >
                         Sabitle
                       </Button>
                     )}
