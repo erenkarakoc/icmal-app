@@ -96,9 +96,12 @@ export function TitleBar({ title, showAppReturn = false }: TitleBarProps) {
       setUpdateInfo(info);
       setShowUpdateDialog(true);
     });
+    // Diyalog burada YENIDEN ACILMAZ. Kendiliginden acilmasi indirmenin
+    // bittigini duyururdu; indirme akisin hicbir yerinde belli edilmez
+    // (2026-09-08). Kurulum dugmesi, kullanici diyalogu kendi actiginda
+    // zaten gorunur olur.
     const cleanupDownloaded = window.electronAPI.onUpdateDownloaded(() => {
       setUpdateReady(true);
-      setShowUpdateDialog(true);
     });
     const cleanupStatus = window.electronAPI.onUpdateStatus(({ status, message }) => {
       if (status === 'checking') toast.info('Güncellemeler denetleniyor…');
@@ -161,7 +164,7 @@ export function TitleBar({ title, showAppReturn = false }: TitleBarProps) {
               variant="ghost"
               size="icon"
               className="relative size-7 cursor-pointer"
-              aria-label="Hazır güncellemeyi görüntüle"
+              aria-label="Yeni sürümü görüntüle"
               onClick={() => setShowUpdateDialog(true)}
             >
               <CircleFadingArrowUp className="size-3.5" />

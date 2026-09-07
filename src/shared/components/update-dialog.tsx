@@ -21,10 +21,15 @@ interface UpdateDialogProps {
 /**
  * Güncelleme bildirimi.
  *
- * Ürün kararı (2026-09-07): indirme kullanıcıya bildirilmez. Kullanıcı yalnız
- * "yeni sürüm var" bilgisini ve neyin değiştiğini görür; indirme arka planda
- * biter ve ancak o zaman yeniden başlatma önerilir. Bu yüzden burada ilerleme
- * çubuğu ya da "İndir" düğmesi yoktur.
+ * Ürün kararı (2026-09-07, 2026-09-08'de sıkılaştırıldı): **indirme akışın
+ * hiçbir yerinde belli edilmez.** Kullanıcı yalnız "yeni sürüm var" bilgisini
+ * ve neyin değiştiğini görür. Bu yüzden burada ilerleme çubuğu, "İndir" düğmesi
+ * ya da "indirme tamamlandı" türü bir metin yoktur.
+ *
+ * Başlık `updateReady` ile DEĞİŞMEZ: başlığın "hazır"a dönmesi indirmenin
+ * bittiğini duyururdu. Hazır olduğunda yalnız kurulum düğmesi belirir; yeniden
+ * başlatma uyarısı da o zaman görünür, çünkü kullanıcı işini kaydetmeden
+ * yeniden başlatılmamalı.
  */
 export function UpdateDialog({
   open,
@@ -38,18 +43,17 @@ export function UpdateDialog({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            {updateReady ? 'Güncelleme hazır' : 'Yeni sürüm var'}
-            {updateInfo ? `: v${updateInfo.version}` : ''}
+            Yeni sürüm var{updateInfo ? `: v${updateInfo.version}` : ''}
           </DialogTitle>
         </DialogHeader>
 
         {updateInfo?.releaseNotes && <ReleaseNotes ham={updateInfo.releaseNotes} />}
 
-        <p className="text-muted-foreground text-sm">
-          {updateReady
-            ? 'Güncellemeyi uygulamak için uygulama yeniden başlatılacak.'
-            : 'Güncelleme arka planda hazırlanıyor. Hazır olduğunda size bildirilecek.'}
-        </p>
+        {updateReady && (
+          <p className="text-muted-foreground text-sm">
+            Güncellemeyi uygulamak için uygulama yeniden başlatılacak.
+          </p>
+        )}
 
         <DialogFooter className="gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
