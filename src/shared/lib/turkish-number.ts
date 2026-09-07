@@ -13,13 +13,33 @@ export function parseTurkishNumber(value: string): Decimal {
   }
 }
 
+function binlikAyir(intPart: string): string {
+  // Eksi işareti gruplamaya karışmasın.
+  const negatif = intPart.startsWith('-');
+  const rakamlar = negatif ? intPart.slice(1) : intPart;
+  const gruplu = rakamlar.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return negatif ? `-${gruplu}` : gruplu;
+}
+
 // Format Decimal to Turkish number format
 export function formatTurkishNumber(value: Decimal, decimals: number = 2): string {
   const fixed = value.toFixed(decimals);
   const [intPart, decPart] = fixed.split('.');
 
-  // Add thousand separators
-  const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${binlikAyir(intPart)},${decPart}`;
+}
 
-  return `${formattedInt},${decPart}`;
+/**
+ * Değeri HİÇBİR basamak kaybetmeden Türkçe biçimde yazar.
+ *
+ * K-10: düzenleme alanında tam değer görünür ve gösterim kısaltması hesap
+ * girdisi yapılmaz. Düzenlenebilir hücreler `formatTurkishNumber` ile 2
+ * ondalığa kısaltılıp `onBlur`'da o metin geri ayrıştırıldığında, hücreye
+ * girip çıkmak bile kaynak hassasiyetini yok ediyordu (12,3456 → 12,35).
+ * Bu yüzden düzenleme alanları bu işlevi kullanmalı.
+ */
+export function formatTurkishExact(value: Decimal): string {
+  const [intPart, decPart] = value.toFixed().split('.');
+  const tamsayi = binlikAyir(intPart);
+  return decPart ? `${tamsayi},${decPart}` : tamsayi;
 }

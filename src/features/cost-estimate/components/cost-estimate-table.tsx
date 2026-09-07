@@ -12,7 +12,11 @@ import {
 } from '@shared/components/ui/tooltip';
 import { Input } from '@shared/components/ui/input';
 import { SortableHead } from '@shared/components/sortable-head';
-import { formatTurkishNumber, parseTurkishNumber } from '@shared/lib/turkish-number';
+import {
+  formatTurkishNumber,
+  formatTurkishExact,
+  parseTurkishNumber,
+} from '@shared/lib/turkish-number';
 import { PozSearchCell } from './poz-search-cell';
 import type { CostRow, CostSortKey, PozEntry } from '../types';
 
@@ -195,9 +199,11 @@ export function CostEstimateTable({
             <TableCell className="border-border overflow-hidden border-r border-b p-1">
               <Input
                 className="h-8 text-right font-mono text-sm"
-                defaultValue={row.quantity.isZero() ? '' : formatTurkishNumber(row.quantity)}
+                defaultValue={row.quantity.isZero() ? '' : formatTurkishExact(row.quantity)}
                 key={`qty-${row.id}`}
-                onFocus={(e) => { e.target.value = row.quantity.toFixed().replace('.', ','); }}
+                onFocus={(e) => {
+                  e.target.value = row.quantity.toFixed().replace('.', ',');
+                }}
                 onBlur={(e) => handleQuantityChange(row.id, e.target.value)}
                 onKeyDown={handleNumericKeyDown}
                 placeholder="0,00"
@@ -208,9 +214,11 @@ export function CostEstimateTable({
             <TableCell className="border-border overflow-hidden border-r border-b p-1">
               <Input
                 className="h-8 text-right font-mono text-sm"
-                defaultValue={row.unitPrice.isZero() ? '' : formatTurkishNumber(row.unitPrice)}
+                defaultValue={row.unitPrice.isZero() ? '' : formatTurkishExact(row.unitPrice)}
                 key={`price-${row.id}-${row.fromDatabase ? row.unitPrice.toString() : ''}`}
-                onFocus={(e) => { e.target.value = row.unitPrice.toFixed().replace('.', ','); }}
+                onFocus={(e) => {
+                  e.target.value = row.unitPrice.toFixed().replace('.', ',');
+                }}
                 onBlur={(e) => handleUnitPriceChange(row.id, e.target.value)}
                 onKeyDown={handleNumericKeyDown}
                 placeholder="0,00"

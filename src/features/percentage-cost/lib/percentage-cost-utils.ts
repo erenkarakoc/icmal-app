@@ -1,4 +1,5 @@
 import Decimal from 'decimal.js';
+import { kurusaYuvarla } from '../../../shared/lib/para.ts';
 import type { PercentageCostRow } from '../types';
 
 export function createEmptyRow(rowNumber: number): PercentageCostRow {
@@ -23,6 +24,11 @@ export function recalculateRowNumbers(rows: PercentageCostRow[]): PercentageCost
   return rows.map((row, i) => ({ ...row, rowNumber: i + 1 }));
 }
 
+/**
+ * Etkin pursantaj. Bu bir ORAN, tutar değil: kuruşa indirilmez, tam
+ * hassasiyette kalır. Yuvarlanmış bir oranla bölmek tahmini maliyeti
+ * gereksiz yere kaydırırdı.
+ */
 export function getEffectivePercentage(low: Decimal, high: Decimal): Decimal {
   const lowPositive = low.greaterThan(0);
   const highPositive = high.greaterThan(0);
@@ -32,9 +38,14 @@ export function getEffectivePercentage(low: Decimal, high: Decimal): Decimal {
   return new Decimal(0);
 }
 
+/**
+ * Pursantajdan tahmini toplam maliyet. Sonuç PARADIR: K-10 gereği kuruşa
+ * yuvarlanır (TEMEL-05.3). Bölme neredeyse her zaman devirli ondalık üretir;
+ * yuvarlanmadan bırakılırsa ekranda görünen değerle saklanan değer ayrışır.
+ */
 export function calculateEstimatedCost(total: Decimal, effectivePercentage: Decimal): Decimal {
   if (effectivePercentage.isZero()) return new Decimal(0);
-  return total.div(effectivePercentage).times(100);
+  return kurusaYuvarla(total.div(effectivePercentage).times(100));
 }
 
 export function calculateWeightedAverage(rows: PercentageCostRow[]): Decimal {
@@ -49,5 +60,6 @@ export function calculateWeightedAverage(rows: PercentageCostRow[]): Decimal {
   }
 
   if (sumPercentage.isZero()) return new Decimal(0);
-  return sumProduct.div(sumPercentage);
+  // Ağırlıklı ortalama da bir tutardır; kuruşa iner.
+  return kurusaYuvarla(sumProduct.div(sumPercentage));
 }
