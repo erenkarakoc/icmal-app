@@ -11,7 +11,7 @@ import { calculateGrandTotal } from '../../cost-estimate/lib/cost-utils';
 import { projeGuncelle, projeOlustur } from '../actions';
 import type { CostRow } from '../../cost-estimate/types';
 import type { PercentageCostRow } from '../../percentage-cost/types';
-import { storeCostRows, storeGiderler, storePercentageRows } from '../lib/row-adapters';
+import { storeCostRows, storeGiderler, storePercentageRows, storeTeklif } from '../lib/row-adapters';
 
 type Props = {kind: 'cost'; rows: CostRow[]; onOpen: (rows: CostRow[]) => void} |
   {kind: 'percentage'; rows: PercentageCostRow[]; onOpen: (rows: PercentageCostRow[]) => void};
@@ -97,7 +97,9 @@ export function ProjectFileToolbar(props: Props) {
       const base = project ?? createProject(name);
       const snapshot = {...base, name, updatedAt: new Date().toISOString(),
         costRows: storeCostRows(session.costRows), percentageRows: storePercentageRows(session.percentageRows),
-        expenses: storeGiderler(session.giderler)};
+        expenses: storeGiderler(session.giderler),
+        ...(storeTeklif(session.teklifYontemi, session.sabitTeklifler)
+          ? {offer: storeTeklif(session.teklifYontemi, session.sabitTeklifler)} : {})};
       const savedFingerprint = session.fingerprint;
       const bytes = await encodeProject(snapshot);
       if (desktop) {
@@ -127,7 +129,9 @@ export function ProjectFileToolbar(props: Props) {
       const base = project ?? createProject(name);
       const snapshot = {...base, name, updatedAt: new Date().toISOString(),
         costRows: storeCostRows(session.costRows), percentageRows: storePercentageRows(session.percentageRows),
-        expenses: storeGiderler(session.giderler)};
+        expenses: storeGiderler(session.giderler),
+        ...(storeTeklif(session.teklifYontemi, session.sabitTeklifler)
+          ? {offer: storeTeklif(session.teklifYontemi, session.sabitTeklifler)} : {})};
       const savedFingerprint = session.fingerprint;
       const bytes = await encodeProject(snapshot);
       // Listeleme ozeti. Toplam mevcut satir tutarlarindan gelir; K-10'un

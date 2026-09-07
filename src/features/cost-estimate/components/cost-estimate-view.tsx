@@ -6,6 +6,8 @@ import { Plus, Search, FileSpreadsheet } from 'lucide-react';
 import { useProjectSession } from '@features/projects/components/project-session';
 import { ProjectFileToolbar } from '@features/projects/components/project-file-toolbar';
 import { ExpensesPanel } from '@features/projects/components/expenses-panel';
+import { OfferPanel } from '@features/projects/components/offer-panel';
+import { giderleriHesapla, toplamMaliyet as toplamMaliyetHesapla } from '@features/projects/lib/giderler';
 import { Button } from '@shared/components/ui/button';
 import { Input } from '@shared/components/ui/input';
 import { formatTurkishNumber } from '@shared/lib/turkish-number';
@@ -16,7 +18,7 @@ import type { CostRow, CostSortKey, PozEntry } from '../types';
 import type { ImportedRow } from '../lib/excel-import';
 
 export function CostEstimateView() {
-  const { costRows: rows, setCostRows: setRows, generation } = useProjectSession();
+  const { costRows: rows, setCostRows: setRows, generation, giderler } = useProjectSession();
   const [fileRevision, setFileRevision] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortConfig, setSortConfig] = useState<{
@@ -164,6 +166,15 @@ export function CostEstimateView() {
   }, [rows, searchQuery, sortConfig]);
 
   const grandTotal = useMemo(() => calculateGrandTotal(rows), [rows]);
+  const toplamMaliyet = useMemo(() => {
+    try {
+      return toplamMaliyetHesapla(grandTotal, giderleriHesapla(grandTotal, giderler));
+    } catch {
+      // Gider paneli hatayi ve sebebini gosteriyor; burada sessizce yanlis bir
+      // toplam uretmektense teklif hesabini devre disi birakiyoruz.
+      return null;
+    }
+  }, [grandTotal, giderler]);
 
   return (
     <div data-project-editor className="flex h-full flex-col">
@@ -223,6 +234,7 @@ export function CostEstimateView() {
 
       <div className="shrink-0 overflow-auto px-4">
         <ExpensesPanel kalemToplami={grandTotal} />
+        {toplamMaliyet && <OfferPanel toplamMaliyet={toplamMaliyet} rows={rows} />}
       </div>
 
       {/* Status Bar */}

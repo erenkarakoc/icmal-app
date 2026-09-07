@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { decodeProject } from '../lib/icmal-file';
-import { restoreCostRows, restoreGiderler, restorePercentageRows, storeCostRows, storePercentageRows } from '../lib/row-adapters';
+import { restoreCostRows, restoreGiderler, restorePercentageRows, restoreTeklif, storeCostRows, storePercentageRows } from '../lib/row-adapters';
 import { useProjectSession } from './project-session';
 import type { CostRow } from '../../cost-estimate/types';
 import type { PercentageCostRow } from '../../percentage-cost/types';
@@ -51,6 +51,9 @@ export function useProjectLoader() {
     o.setCostRows(costRows);
     o.setPercentageRows(percentageRows);
     o.setGiderler(restoreGiderler(loaded.expenses));
+    const teklif = restoreTeklif(loaded.offer);
+    o.setTeklifYontemi(teklif.yontem);
+    o.setSabitTeklifler(teklif.sabitler);
     o.setGeneration((n) => n + 1);
     o.setToken(secenek.token);
     o.setHesapProjeId(secenek.hesapProjeId);
@@ -61,6 +64,8 @@ export function useProjectLoader() {
       costRows: storeCostRows(costRows),
       percentageRows: storePercentageRows(percentageRows),
       giderler: restoreGiderler(loaded.expenses),
+      teklifYontemi: restoreTeklif(loaded.offer).yontem,
+      sabitTeklifler: restoreTeklif(loaded.offer).sabitler,
     }));
     secenek.onRows?.(costRows, percentageRows);
     return true;

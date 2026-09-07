@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js';
 import type { Gider } from './giderler';
+import type { KarYontemi } from './teklif';
 import type { CostRow } from '../../cost-estimate/types';
 import type { PercentageCostRow } from '../../percentage-cost/types';
 import type { IcmalProject } from './icmal-file';
@@ -52,4 +53,29 @@ export function restoreGiderler(expenses: IcmalProject['expenses']): Gider[] {
     deger: e.value,
     ...(e.baseExpenseIds?.length ? { tabanGiderleri: e.baseExpenseIds } : {}),
   }));
+}
+
+// Teklif dönüşümü. Gider adaptöründeki gerekçe burada da geçerli: eşleme tek
+// yerde durmazsa sabitlenen tutarlar sessizce kaybolur.
+export function storeTeklif(
+  yontem: KarYontemi | null,
+  sabitler: Record<string, string>,
+): IcmalProject['offer'] {
+  if (!yontem) return undefined;
+  const fixedRows = Object.entries(sabitler).map(([rowId, amount]) => ({ rowId, amount }));
+  return {
+    method: yontem.tur,
+    value: yontem.deger,
+    ...(fixedRows.length ? { fixedRows } : {}),
+  };
+}
+
+export function restoreTeklif(offer: IcmalProject['offer']): {
+  yontem: KarYontemi | null;
+  sabitler: Record<string, string>;
+} {
+  if (!offer) return { yontem: null, sabitler: {} };
+  const sabitler: Record<string, string> = {};
+  for (const satir of offer.fixedRows ?? []) sabitler[satir.rowId] = satir.amount;
+  return { yontem: { tur: offer.method, deger: offer.value } as KarYontemi, sabitler };
 }
