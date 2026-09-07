@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { BookOpen, Building2, CalendarDays, Loader2, LockKeyhole, Search } from 'lucide-react';
 
 import { createClient } from '@shared/lib/supabase/client';
+import { pozAdaylari } from '@shared/lib/katalog-adaylari';
 import { Badge } from '@shared/components/ui/badge';
 import { Button } from '@shared/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@shared/components/ui/card';
@@ -95,28 +96,66 @@ export function UnitPriceView() {
     if (!temelErisim || query.trim().length < 2) {
       return;
     }
+    const iptal = new AbortController();
     const zamanlayici = window.setTimeout(async () => {
       setYukleniyor(true);
       setHata(null);
       const arama = query.trim();
-      const [kod, tanim] = await Promise.all([
-        supabase.from('v_poz_detay').select('*').ilike('poz_numarasi', `%${arama}%`).limit(50),
-        supabase.from('v_poz_detay').select('*').ilike('tanim', `%${arama}%`).limit(50),
-      ]);
-      const hataSonucu = kod.error ?? tanim.error;
-      if (hataSonucu) {
-        setHata(hataSonucu.message);
-        setSonuclar([]);
-      } else {
+      // 8 sn: maliyet seçicisiyle aynı sözleşme. Sunucu tarafı zaman aşımı
+      // ham Postgres cümlesi olarak kullanıcıya çıkmasın.
+      const zamanAsimi = AbortSignal.timeout(8000);
+      const signal = AbortSignal.any([iptal.signal, zamanAsimi]);
+
+      try {
+        // Görünüm üzerinde baştan joker'li `ilike` indeks kullanamaz ve zaman
+        // aşımına düşer. Önce indeksli kolonlardan dar aday kümesi alınır.
+        const [kod, tanim] = await Promise.all([
+          pozAdaylari(supabase, arama, 'poz_numarasi', signal),
+          pozAdaylari(supabase, arama, 'tanim', signal),
+        ]);
+        const adayHatasi = kod.error ?? tanim.error;
+        if (adayHatasi) throw adayHatasi;
+
         const birlesik = new Map<string, PozDetayi>();
-        for (const satir of [...(kod.data ?? []), ...(tanim.data ?? [])] as PozDetayi[]) {
-          birlesik.set(satir.poz_surumu_id, satir);
+        const gruplar = [kod, tanim].filter((g) => g.kimlikler.length);
+        const sonuclar = await Promise.all(
+          gruplar.map((g) =>
+            supabase
+              .from('v_poz_detay')
+              .select('*')
+              .in(g.kolon, g.kimlikler)
+              .order('poz_numarasi')
+              .order('poz_surumu_id')
+              .limit(100)
+              .abortSignal(signal),
+          ),
+        );
+        for (const sonuc of sonuclar) {
+          if (sonuc.error) throw sonuc.error;
+          for (const satir of (sonuc.data ?? []) as PozDetayi[]) {
+            birlesik.set(satir.poz_surumu_id, satir);
+          }
         }
-        setSonuclar([...birlesik.values()].slice(0, 100));
+        if (iptal.signal.aborted) return;
+        setSonuclar([...birlesik.values()]);
+      } catch (e) {
+        if (iptal.signal.aborted) return;
+        // Aşamayı ayırmak önemli: yetki reddi yavaş sorgudan bağımsızdır.
+        const kodu = (e as { code?: string } | null)?.code;
+        if (zamanAsimi.aborted) setHata('Katalog araması zamanında tamamlanamadı. Tekrar deneyin.');
+        else if (kodu === '42501')
+          setHata('Katalog erişim izni bulunamadı. Hesap yetkileri kontrol edilmeli.');
+        else setHata('Katalog yüklenemedi. Bağlantınızı kontrol edip tekrar deneyin.');
+        setSonuclar([]);
+      } finally {
+        if (!iptal.signal.aborted) setYukleniyor(false);
       }
-      setYukleniyor(false);
     }, 300);
-    return () => window.clearTimeout(zamanlayici);
+    return () => {
+      window.clearTimeout(zamanlayici);
+      // Eski istek yeni sonuçları ezmesin.
+      iptal.abort();
+    };
   }, [query, temelErisim, supabase]);
 
   if (temelErisim === null) {
