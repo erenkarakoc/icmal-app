@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { handoverKind, type HandoverKind } from './project-launch';
 import type { ProjectPayload } from './project-files';
+import type { ProjectRegistry } from './project-registry';
 
 type Handover = {kind: HandoverKind; path: string};
 
@@ -12,6 +13,7 @@ export function registerFileHandover(
   window: BrowserWindow,
   origin: string,
   adopt: (target: string) => Promise<ProjectPayload>,
+  registry: ProjectRegistry,
 ) {
   let pending: Handover | null = null;
   const guard = (event: Electron.IpcMainInvokeEvent) => {
@@ -35,6 +37,18 @@ export function registerFileHandover(
     // project file, so the .icmal size limit deliberately does not apply here.
     const bytes = await fs.readFile(target);
     return {name: path.basename(target), bytes: new Uint8Array(bytes)};
+  });
+  // A listed project opened from a screen that cannot load it itself is queued
+  // the same way the shell queues a double-clicked file: the consuming screen
+  // collects it after the renderer navigates there.
+  ipcMain.removeHandler('project-queue-ref');
+  ipcMain.handle('project-queue-ref', async (event, input: unknown) => {
+    guard(event);
+    const id = (input as {id?: string})?.id;
+    const entry = id ? await registry.find(id) : null;
+    if (!entry) throw new Error('Proje başvurusu bulunamadı.');
+    pending = {kind: 'icmal', path: entry.path};
+    return {queued: true};
   });
   return {
     handOver(target: string) {

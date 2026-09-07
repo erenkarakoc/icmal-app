@@ -108,7 +108,7 @@ function createWindow(): void {
   const origin = new URL(serverUrl).origin;
   const registry = new ProjectRegistry(path.join(app.getPath('userData'), 'yerel-projeler.json'));
   const projectFiles = registerProjectFiles(mainWindow, origin, registry);
-  fileHandover = registerFileHandover(mainWindow, origin, projectFiles.adopt);
+  fileHandover = registerFileHandover(mainWindow, origin, projectFiles.adopt, registry);
   registerProjectCloseGuard(mainWindow);
   mainWindow.loadURL(serverUrl);
 

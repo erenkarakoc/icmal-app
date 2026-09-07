@@ -25,6 +25,7 @@ declare global {
       projectOpenRef: (id: string) => Promise<{token: string; name: string; bytes: Uint8Array}>;
       projectForgetRef: (id: string) => Promise<{removed: boolean}>;
       projectRelocateRef: (id: string) => Promise<{token: string; name: string; bytes: Uint8Array} | null>;
+      projectQueueRef: (id: string) => Promise<{queued: boolean}>;
       filePendingKind: () => Promise<'icmal' | 'ekap' | null>;
       filePendingTake: {
         (kind: 'icmal'): Promise<{token: string; name: string; bytes: Uint8Array} | null>;

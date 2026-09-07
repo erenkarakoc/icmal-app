@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   projectOpenRef: (id: string) => ipcRenderer.invoke('project-open-ref', {id}),
   projectForgetRef: (id: string) => ipcRenderer.invoke('project-forget-ref', {id}),
   projectRelocateRef: (id: string) => ipcRenderer.invoke('project-relocate-ref', {id}),
+  projectQueueRef: (id: string) => ipcRenderer.invoke('project-queue-ref', {id}),
   filePendingKind: () => ipcRenderer.invoke('file-pending-kind'),
   filePendingTake: (kind: 'icmal' | 'ekap') => ipcRenderer.invoke('file-pending-take', kind),
   onFilePending: (callback: (kind: 'icmal' | 'ekap') => void) => {

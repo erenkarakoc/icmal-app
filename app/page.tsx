@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { LocalProjectsSection } from '@features/projects/components/local-projects-section';
 import {
   FileText,
   Calculator,
@@ -78,6 +79,8 @@ export default function HomePage() {
               </Link>
             ))}
           </div>
+
+          <LocalProjectsSection />
         </div>
       </div>
     </div>
