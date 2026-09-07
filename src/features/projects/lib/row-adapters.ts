@@ -1,4 +1,5 @@
 import Decimal from 'decimal.js';
+import type { Gider } from './giderler';
 import type { CostRow } from '../../cost-estimate/types';
 import type { PercentageCostRow } from '../../percentage-cost/types';
 import type { IcmalProject } from './icmal-file';
@@ -27,4 +28,28 @@ export function restorePercentageRows(rows: IcmalProject['percentageRows']): Per
     return {...row, percentageLow: low, percentageHigh: high, useRange: rows[i].useRange,
       estimatedCost: effective.isZero() ? new Decimal(0) : row.total.div(effective).times(100)};
   });
+}
+
+// Gider dönüşümü tek yerde durur: alan eşlemesi (ad↔name, tur↔kind) iki ayrı
+// kopyada yazılırsa biri sapınca gider sessizce kaybolur.
+export function storeGiderler(giderler: Gider[]): IcmalProject['expenses'] {
+  return giderler.map((g) => ({
+    id: g.id,
+    name: g.ad,
+    kind: g.tur,
+    value: g.deger,
+    // Boş dizi yazmak yerine alanı hiç koymamak dosyayı sade tutar; şema da
+    // bunu isteğe bağlı tanımlıyor.
+    ...(g.tabanGiderleri?.length ? { baseExpenseIds: g.tabanGiderleri } : {}),
+  }));
+}
+
+export function restoreGiderler(expenses: IcmalProject['expenses']): Gider[] {
+  return expenses.map((e) => ({
+    id: e.id,
+    ad: e.name,
+    tur: e.kind,
+    deger: e.value,
+    ...(e.baseExpenseIds?.length ? { tabanGiderleri: e.baseExpenseIds } : {}),
+  }));
 }

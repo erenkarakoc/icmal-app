@@ -5,6 +5,7 @@ import { Plus, Search, FileSpreadsheet } from 'lucide-react';
 
 import { useProjectSession } from '@features/projects/components/project-session';
 import { ProjectFileToolbar } from '@features/projects/components/project-file-toolbar';
+import { ExpensesPanel } from '@features/projects/components/expenses-panel';
 import { Button } from '@shared/components/ui/button';
 import { Input } from '@shared/components/ui/input';
 import { formatTurkishNumber } from '@shared/lib/turkish-number';
@@ -218,6 +219,10 @@ export function CostEstimateView() {
           onPozSelect={handlePozSelect}
           focusedRowId={focusedRowId}
         />
+      </div>
+
+      <div className="shrink-0 overflow-auto px-4">
+        <ExpensesPanel kalemToplami={grandTotal} />
       </div>
 
       {/* Status Bar */}
