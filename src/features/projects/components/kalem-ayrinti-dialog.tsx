@@ -13,7 +13,7 @@ import {
 import { Input } from '@shared/components/ui/input';
 import { Label } from '@shared/components/ui/label';
 import type { CostRow } from '@features/cost-estimate/types';
-import { kullanilanDisiplinler } from '../lib/is-gruplari';
+import { kullanilanDisiplinler, onerilenIsGruplari } from '../lib/is-gruplari';
 import type { MetrajSatiri } from '../lib/metraj';
 import { MetrajPanel } from './metraj-panel';
 
@@ -88,10 +88,18 @@ export function KalemAyrintiDialog({
                 <Input
                   id="kalem-is-grubu"
                   className="w-48"
+                  list="is-grubu-listesi"
                   placeholder="Kaba Yapı"
                   value={isGrubu}
                   onChange={(e) => setIsGrubu(e.target.value)}
                 />
+                {/* Oneriler secilen disipline gore degisir; hicbiri zorunlu
+                    degildir ve projeye kendiliginden grup eklemez. */}
+                <datalist id="is-grubu-listesi">
+                  {onerilenIsGruplari(disiplin, tumSatirlar).map((g) => (
+                    <option key={g} value={g} />
+                  ))}
+                </datalist>
               </div>
             </div>
 

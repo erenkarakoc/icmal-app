@@ -54,9 +54,13 @@ async function sarmala<T>(is: () => Promise<T>): Promise<Sonuc<T>> {
  */
 async function oturum() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) throw new Error('Bu işlem için giriş yapmalısınız.');
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   if (!session) throw new Error('Oturum bilgisi okunamadı; yeniden giriş yapın.');
   return { supabase, user, belirtec: session.access_token };
 }
@@ -74,7 +78,9 @@ async function listeyiOku() {
   // RLS zaten sahibe daraltir; siralamayi indeks karsilar.
   const { data, error } = await supabase
     .from('projeler')
-    .select('id, ad, kalem_sayisi, toplam_tutar, para_birimi, boyut_bayt, olusturulma_zamani, guncellenme_zamani')
+    .select(
+      'id, ad, kalem_sayisi, toplam_tutar, para_birimi, boyut_bayt, olusturulma_zamani, guncellenme_zamani',
+    )
     .order('guncellenme_zamani', { ascending: false });
   if (error) throw new Error(error.message);
   return data ?? [];
@@ -169,11 +175,7 @@ async function ac(id: string): Promise<{ ad: string; bytes: Uint8Array }> {
  */
 async function sil(id: string) {
   const { supabase, belirtec } = await oturum();
-  const { data, error } = await supabase
-    .from('projeler')
-    .select('id')
-    .eq('id', id)
-    .single();
+  const { data, error } = await supabase.from('projeler').select('id').eq('id', id).single();
   if (error || !data) throw new Error('Proje bulunamadı.');
 
   const { error: silmeHatasi } = await supabase.from('projeler').delete().eq('id', id);

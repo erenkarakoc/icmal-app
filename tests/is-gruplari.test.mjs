@@ -6,6 +6,7 @@ import {
   kullanilanDisiplinler,
   DISIPLINLER,
   GRUPSUZ_BASLIK,
+  onerilenIsGruplari,
 } from '../src/features/projects/lib/is-gruplari.ts';
 
 const s = (disiplin, isGrubu, tutar) => ({ disiplin, isGrubu, total: new Decimal(tutar) });
@@ -73,4 +74,32 @@ test('hazir disiplinler ve projede kullanilanlar birlikte sunulur', () => {
 
 test('hazir disiplin tekrar eklenmez', () => {
   assert.deepEqual(kullanilanDisiplinler([s('Mekanik', '', '1')]), [...DISIPLINLER]);
+});
+
+// --- PROJE-02.1 · hazir grup onerileri --------------------------------------
+
+test('secilen disiplinin hazir is gruplari sunulur', () => {
+  const o = onerilenIsGruplari('İnşaat', []);
+  assert.ok(o.includes('Kaba Yapı') && o.includes('İnce Yapı'));
+  assert.ok(!o.includes('Aydınlatma'), 'baska disiplinin grubu sizmamali');
+});
+
+test('projede kullanilan adlar da eklenir, tekrar etmez', () => {
+  const o = onerilenIsGruplari('İnşaat', [
+    s('İnşaat', 'Kaba Yapı', '1'),
+    s('İnşaat', 'Cephe', '1'),
+  ]);
+  assert.equal(o.filter((x) => x === 'Kaba Yapı').length, 1, 'hazir olan tekrar edilmemeli');
+  assert.ok(o.includes('Cephe'), 'projede kullanilan ad onerilmeli');
+});
+
+test('baska disiplinde kullanilan ad sizmaz', () => {
+  const o = onerilenIsGruplari('Elektrik', [s('İnşaat', 'Cephe', '1')]);
+  assert.ok(!o.includes('Cephe'));
+});
+
+test('disiplin bos ya da bilinmeyense uydurma oneri uretilmez', () => {
+  assert.deepEqual(onerilenIsGruplari('', []), []);
+  assert.deepEqual(onerilenIsGruplari('Peyzaj', []), []);
+  assert.deepEqual(onerilenIsGruplari('Peyzaj', [s('Peyzaj', 'Sulama', '1')]), ['Sulama']);
 });
