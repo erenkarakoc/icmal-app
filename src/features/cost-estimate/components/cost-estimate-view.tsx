@@ -3,6 +3,7 @@
 import Decimal from 'decimal.js';
 import { kaynakFiyatinaDon, metrajiUygula, satiriGuncelle } from '@shared/lib/satir-guncelle';
 import { metrajToplami, type MetrajSatiri } from '@features/projects/lib/metraj';
+import { gruplaraAyir, kullanilanDisiplinler } from '@features/projects/lib/is-gruplari';
 import { MetrajPanel } from '@features/projects/components/metraj-panel';
 import { satirTutari } from '@shared/lib/para';
 import React, { useState, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
@@ -195,6 +196,20 @@ export function CostEstimateView() {
       });
     }
 
+    // Gruplama varsa satirlar bolume gore toplanir; tablo bolum degisince
+    // baslik yazar. Bolum sirasi ILK GORULME siradir, kullanicinin kurdugu
+    // duzen alfabetik siralamayla bozulmaz.
+    if (result.some((r) => r.disiplin?.trim() || r.isGrubu?.trim())) {
+      const sira = new Map<string, number>();
+      for (const bolum of gruplaraAyir(result)) {
+        sira.set(`${bolum.disiplin} ${bolum.isGrubu}`, sira.size);
+      }
+      const anahtar = (r: CostRow) => `${(r.disiplin ?? '').trim()} ${(r.isGrubu ?? '').trim()}`;
+      result = [...result].sort(
+        (a, b) => (sira.get(anahtar(a)) ?? 0) - (sira.get(anahtar(b)) ?? 0),
+      );
+    }
+
     return result;
   }, [rows, searchQuery, sortConfig]);
 
@@ -282,10 +297,37 @@ export function CostEstimateView() {
             return (
               <div>
                 <div className="text-muted-foreground mt-6 flex items-center gap-2 text-sm">
-                  <span>{satir.pozNo || satir.description || 'Adsız kalem'} — metraj</span>
+                  <span>{satir.pozNo || satir.description || 'Adsız kalem'} — kalem ayrıntısı</span>
                   <button type="button" className="underline" onClick={() => setMetrajRowId(null)}>
                     kapat
                   </button>
+                </div>
+                {/* Kalem grubu: disiplin hazir listeden, is grubu serbest.
+                    Katalog disiplini tasimadigi icin otomatik atanmaz. */}
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                  <label className="flex items-center gap-1">
+                    Disiplin
+                    <input
+                      className="border-input bg-background h-8 w-36 rounded-md border px-2"
+                      list="disiplin-listesi"
+                      defaultValue={satir.disiplin ?? ''}
+                      onBlur={(e) => updateRow(satir.id, { disiplin: e.target.value })}
+                    />
+                  </label>
+                  <datalist id="disiplin-listesi">
+                    {kullanilanDisiplinler(rows).map((d) => (
+                      <option key={d} value={d} />
+                    ))}
+                  </datalist>
+                  <label className="flex items-center gap-1">
+                    İş grubu
+                    <input
+                      className="border-input bg-background h-8 w-44 rounded-md border px-2"
+                      placeholder="Kaba Yapı"
+                      defaultValue={satir.isGrubu ?? ''}
+                      onBlur={(e) => updateRow(satir.id, { isGrubu: e.target.value })}
+                    />
+                  </label>
                 </div>
                 <MetrajPanel
                   satirlar={satir.metraj ?? []}

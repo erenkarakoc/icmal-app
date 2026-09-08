@@ -52,6 +52,10 @@ const item = z.strictObject({
     )
     .max(5000)
     .optional(),
+  // Is grubu (PROJE-02). Istege baglidir; bu alanlardan onceki dosyalarda
+  // bulunmaz ve kalemler "Gruplanmamis" bolumunde gorunur.
+  discipline: z.string().max(100).optional(),
+  workGroup: z.string().max(200).optional(),
   /** Metraj eklenmeden once elle yazilan miktar; metraj kalkinca geri doner. */
   manualQuantity: decimal.optional(),
 });

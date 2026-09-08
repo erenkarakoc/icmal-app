@@ -389,3 +389,46 @@ test('metrajsiz satir dosyaya bos metraj alani yazmaz', () => {
   assert.equal('takeoff' in yazilan, false);
   assert.equal('manualQuantity' in yazilan, false);
 });
+
+// --- PROJE-02 · is grubu gidis-donusu ---------------------------------------
+
+test('is grubu dosyaya yazilip geri okunur', () => {
+  const [yazilan] = storeCostRows([
+    {
+      id: 'a',
+      pozNo: '15.100',
+      description: '',
+      unit: 'm³',
+      quantity: new Decimal(1),
+      unitPrice: new Decimal(1),
+      total: new Decimal(1),
+      fromDatabase: false,
+      disiplin: 'İnşaat',
+      isGrubu: 'Kaba Yapı',
+    },
+  ]);
+  assert.equal(yazilan.discipline, 'İnşaat');
+  assert.equal(yazilan.workGroup, 'Kaba Yapı');
+  const geri = restoreCostRows([yazilan]);
+  assert.equal(geri[0].disiplin, 'İnşaat');
+  assert.equal(geri[0].isGrubu, 'Kaba Yapı');
+});
+
+test('grupsuz satir dosyaya bos alan yazmaz', () => {
+  const [yazilan] = storeCostRows([
+    {
+      id: 'a',
+      pozNo: 'X',
+      description: '',
+      unit: '',
+      quantity: new Decimal(1),
+      unitPrice: new Decimal(1),
+      total: new Decimal(1),
+      fromDatabase: false,
+      disiplin: '   ',
+      isGrubu: '',
+    },
+  ]);
+  assert.equal('discipline' in yazilan, false);
+  assert.equal('workGroup' in yazilan, false);
+});

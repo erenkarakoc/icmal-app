@@ -20,6 +20,8 @@ export function storeCostRows(rows: CostRow[]): IcmalProject['costRows'] {
     quantity: row.quantity.toFixed(),
     unitPrice: row.unitPrice.toFixed(),
     priceSource: cozulmusKaynak(row),
+    ...(row.disiplin?.trim() ? { discipline: row.disiplin.trim() } : {}),
+    ...(row.isGrubu?.trim() ? { workGroup: row.isGrubu.trim() } : {}),
     ...(row.metraj?.length
       ? {
           takeoff: row.metraj.map((m) => ({
@@ -74,6 +76,8 @@ export function restoreCostRows(rows: IcmalProject['costRows']): CostRow[] {
           }
         : {}),
       ...(row.manualQuantity ? { elleMiktar: new Decimal(row.manualQuantity) } : {}),
+      ...(row.discipline ? { disiplin: row.discipline } : {}),
+      ...(row.workGroup ? { isGrubu: row.workGroup } : {}),
       fromDatabase: !!row.source,
     };
   });

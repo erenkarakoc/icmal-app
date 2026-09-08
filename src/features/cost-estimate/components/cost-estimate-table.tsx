@@ -12,6 +12,8 @@ import {
 } from '@shared/components/ui/tooltip';
 import { Input } from '@shared/components/ui/input';
 import { cozulmusKaynak } from '@shared/lib/satir-guncelle';
+import { kalemlerToplami } from '@shared/lib/para';
+import { GRUPSUZ_BASLIK } from '@features/projects/lib/is-gruplari';
 import { SortableHead } from '@shared/components/sortable-head';
 import {
   formatTurkishNumber,
@@ -79,6 +81,17 @@ export function CostEstimateTable({
   focusedRowId,
 }: CostEstimateTableProps) {
   const totalTableWidth = VISIBLE_COLUMNS.reduce((sum, key) => sum + (columnWidths[key] || 0), 0);
+
+  // Gruplama yalniz kullanilmissa gorunur; hicbir satirda grup yoksa tablo
+  // eskisi gibi duz kalir.
+  const gruplamaVar = rows.some((r) => r.disiplin?.trim() || r.isGrubu?.trim());
+  const grupAnahtari = (r: CostRow) => `${(r.disiplin ?? '').trim()} ${(r.isGrubu ?? '').trim()}`;
+  const grupBasligi = (r: CostRow) => {
+    const parcalar = [(r.disiplin ?? '').trim(), (r.isGrubu ?? '').trim()].filter(Boolean);
+    return parcalar.length ? parcalar.join(' › ') : GRUPSUZ_BASLIK;
+  };
+  const grupToplami = (hepsi: CostRow[], anahtar: string) =>
+    kalemlerToplami(hepsi.filter((r) => grupAnahtari(r) === anahtar).map((r) => r.total));
 
   const handleQuantityChange = useCallback(
     (id: string, value: string) => {
@@ -163,145 +176,165 @@ export function CostEstimateTable({
         </TableRow>
       </TableHeader>
       <TableBody className="[&_tr:last-child_td]:border-b-0">
-        {rows.map((row) => (
-          <TableRow key={row.id} className="hover:bg-muted/30 odd:bg-muted/5 group">
-            {/* # */}
-            <TableCell className="text-muted-foreground border-border overflow-hidden border-r border-b py-1 text-center text-xs font-medium">
-              {row.rowNumber}
-            </TableCell>
+        {rows.map((row, index) => (
+          <React.Fragment key={row.id}>
+            {/* Grup basligi: satirlar gorunumde bolume gore siralanmis gelir,
+                bolum degistiginde baslik ve ara toplam yazilir. */}
+            {gruplamaVar &&
+              (index === 0 || grupAnahtari(rows[index - 1]) !== grupAnahtari(row)) && (
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  <TableCell
+                    colSpan={99}
+                    className="border-border border-b py-1.5 text-xs font-medium"
+                  >
+                    <span className="flex justify-between">
+                      <span>{grupBasligi(row)}</span>
+                      <span className="font-mono">
+                        {formatTurkishNumber(grupToplami(rows, grupAnahtari(row)))}
+                      </span>
+                    </span>
+                  </TableCell>
+                </TableRow>
+              )}
+            <TableRow className="hover:bg-muted/30 odd:bg-muted/5 group">
+              {/* # */}
+              <TableCell className="text-muted-foreground border-border overflow-hidden border-r border-b py-1 text-center text-xs font-medium">
+                {row.rowNumber}
+              </TableCell>
 
-            {/* Poz No */}
-            <TableCell className="border-border overflow-hidden border-r border-b p-1">
-              <PozSearchCell
-                value={row.pozNo}
-                onChange={(val) => onUpdateRow(row.id, { pozNo: val })}
-                onSelect={(entry) => onPozSelect(row.id, entry)}
-                autoFocus={row.id === focusedRowId}
-              />
-            </TableCell>
-
-            {/* Tanım */}
-            <TableCell className="border-border max-w-0 overflow-hidden border-r border-b p-1">
-              <PozSearchCell
-                field="tanim"
-                value={row.description}
-                onChange={(value) => onUpdateRow(row.id, { description: value })}
-                onSelect={(entry) => onPozSelect(row.id, entry)}
-              />
-            </TableCell>
-
-            {/* Birim */}
-            <TableCell className="border-border overflow-hidden border-r border-b p-1">
-              <Input
-                className="h-8 text-xs"
-                value={row.unit}
-                onChange={(e) => onUpdateRow(row.id, { unit: e.target.value })}
-                placeholder="Birim"
-              />
-            </TableCell>
-
-            {/* Miktar */}
-            <TableCell className="border-border overflow-hidden border-r border-b p-1">
-              <div className="flex items-center gap-1">
-                <Input
-                  className="h-8 text-right font-mono text-sm"
-                  defaultValue={row.quantity.isZero() ? '' : formatTurkishExact(row.quantity)}
-                  key={`qty-${row.id}-${row.metraj?.length ?? 0}-${row.metraj?.length ? row.quantity.toString() : ''}`}
-                  // Metraj varsa miktar ONDAN gelir; elle yazilmasi sessizce
-                  // metraji gecersiz kilardi.
-                  readOnly={!!row.metraj?.length}
-                  title={row.metraj?.length ? 'Miktar metrajdan hesaplanıyor' : undefined}
-                  onFocus={(e) => {
-                    e.target.value = row.quantity.toFixed().replace('.', ',');
-                  }}
-                  onBlur={(e) => handleQuantityChange(row.id, e.target.value)}
-                  onKeyDown={handleNumericKeyDown}
-                  placeholder="0,00"
+              {/* Poz No */}
+              <TableCell className="border-border overflow-hidden border-r border-b p-1">
+                <PozSearchCell
+                  value={row.pozNo}
+                  onChange={(val) => onUpdateRow(row.id, { pozNo: val })}
+                  onSelect={(entry) => onPozSelect(row.id, entry)}
+                  autoFocus={row.id === focusedRowId}
                 />
-                <button
-                  type="button"
-                  className={
-                    row.metraj?.length
-                      ? 'text-foreground shrink-0'
-                      : 'text-muted-foreground hover:text-foreground shrink-0'
-                  }
-                  title={
-                    row.metraj?.length
-                      ? `${row.metraj.length} ölçü satırı — düzenlemek için tıklayın`
-                      : 'Mahal bazlı metraj ekle'
-                  }
-                  aria-label="Metraj"
-                  onClick={() => onOpenMetraj(row.id)}
-                >
-                  <Ruler className="size-3.5" />
-                </button>
-              </div>
-            </TableCell>
+              </TableCell>
 
-            {/* Birim Fiyat */}
-            <TableCell className="border-border overflow-hidden border-r border-b p-1">
-              <div className="flex items-center gap-1">
-                <Input
-                  className="h-8 text-right font-mono text-sm"
-                  defaultValue={row.unitPrice.isZero() ? '' : formatTurkishExact(row.unitPrice)}
-                  key={`price-${row.id}-${row.fiyatKaynagi ?? ''}-${row.fromDatabase ? row.unitPrice.toString() : ''}`}
-                  onFocus={(e) => {
-                    e.target.value = row.unitPrice.toFixed().replace('.', ',');
-                  }}
-                  onBlur={(e) => handleUnitPriceChange(row.id, e.target.value)}
-                  onKeyDown={handleNumericKeyDown}
-                  placeholder="0,00"
+              {/* Tanım */}
+              <TableCell className="border-border max-w-0 overflow-hidden border-r border-b p-1">
+                <PozSearchCell
+                  field="tanim"
+                  value={row.description}
+                  onChange={(value) => onUpdateRow(row.id, { description: value })}
+                  onSelect={(entry) => onPozSelect(row.id, entry)}
                 />
-                {/* Elle girilmis fiyat: kaynak korunur, tek tikla geri donulur. */}
-                {row.source && cozulmusKaynak(row) === 'elle' && (
+              </TableCell>
+
+              {/* Birim */}
+              <TableCell className="border-border overflow-hidden border-r border-b p-1">
+                <Input
+                  className="h-8 text-xs"
+                  value={row.unit}
+                  onChange={(e) => onUpdateRow(row.id, { unit: e.target.value })}
+                  placeholder="Birim"
+                />
+              </TableCell>
+
+              {/* Miktar */}
+              <TableCell className="border-border overflow-hidden border-r border-b p-1">
+                <div className="flex items-center gap-1">
+                  <Input
+                    className="h-8 text-right font-mono text-sm"
+                    defaultValue={row.quantity.isZero() ? '' : formatTurkishExact(row.quantity)}
+                    key={`qty-${row.id}-${row.metraj?.length ?? 0}-${row.metraj?.length ? row.quantity.toString() : ''}`}
+                    // Metraj varsa miktar ONDAN gelir; elle yazilmasi sessizce
+                    // metraji gecersiz kilardi.
+                    readOnly={!!row.metraj?.length}
+                    title={row.metraj?.length ? 'Miktar metrajdan hesaplanıyor' : undefined}
+                    onFocus={(e) => {
+                      e.target.value = row.quantity.toFixed().replace('.', ',');
+                    }}
+                    onBlur={(e) => handleQuantityChange(row.id, e.target.value)}
+                    onKeyDown={handleNumericKeyDown}
+                    placeholder="0,00"
+                  />
                   <button
                     type="button"
-                    className="text-muted-foreground hover:text-foreground shrink-0"
-                    title={`Elle girilmiş fiyat. Katalog fiyatı: ${formatTurkishNumber(new Decimal(row.source.priceAmount))} — tıklayarak geri dönün.`}
-                    aria-label="Katalog fiyatına dön"
-                    onClick={() => onRevertPrice(row.id)}
+                    className={
+                      row.metraj?.length
+                        ? 'text-foreground shrink-0'
+                        : 'text-muted-foreground hover:text-foreground shrink-0'
+                    }
+                    title={
+                      row.metraj?.length
+                        ? `${row.metraj.length} ölçü satırı — düzenlemek için tıklayın`
+                        : 'Mahal bazlı metraj ekle'
+                    }
+                    aria-label="Metraj"
+                    onClick={() => onOpenMetraj(row.id)}
                   >
-                    <PencilLine className="size-3.5" />
+                    <Ruler className="size-3.5" />
                   </button>
-                )}
-              </div>
-            </TableCell>
+                </div>
+              </TableCell>
 
-            {/* Toplam */}
-            <TableCell className="border-border overflow-hidden border-r border-b py-1 pr-2 text-right font-mono text-sm font-medium">
-              {row.total.isZero() ? '' : formatTurkishNumber(row.total)}
-            </TableCell>
-
-            {/* Percentage */}
-            <TableCell className="border-border overflow-hidden border-r border-b py-1 pr-2 text-right font-mono text-sm font-medium">
-              {(() => {
-                const pct = grandTotal.isZero()
-                  ? new Decimal(0)
-                  : row.total.div(grandTotal).times(100);
-                return (
-                  <div className="flex items-center justify-end gap-1">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="cursor-default">{formatTurkishNumber(pct, 2)}%</span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <span className="font-mono">{formatTurkishNumber(pct, 8)}%</span>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+              {/* Birim Fiyat */}
+              <TableCell className="border-border overflow-hidden border-r border-b p-1">
+                <div className="flex items-center gap-1">
+                  <Input
+                    className="h-8 text-right font-mono text-sm"
+                    defaultValue={row.unitPrice.isZero() ? '' : formatTurkishExact(row.unitPrice)}
+                    key={`price-${row.id}-${row.fiyatKaynagi ?? ''}-${row.fromDatabase ? row.unitPrice.toString() : ''}`}
+                    onFocus={(e) => {
+                      e.target.value = row.unitPrice.toFixed().replace('.', ',');
+                    }}
+                    onBlur={(e) => handleUnitPriceChange(row.id, e.target.value)}
+                    onKeyDown={handleNumericKeyDown}
+                    placeholder="0,00"
+                  />
+                  {/* Elle girilmis fiyat: kaynak korunur, tek tikla geri donulur. */}
+                  {row.source && cozulmusKaynak(row) === 'elle' && (
                     <button
-                      className="text-muted-foreground hover:text-destructive ml-1 opacity-0 transition-opacity group-hover:opacity-100"
-                      onClick={() => onDeleteRow(row.id)}
-                      title="Satırı sil"
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground shrink-0"
+                      title={`Elle girilmiş fiyat. Katalog fiyatı: ${formatTurkishNumber(new Decimal(row.source.priceAmount))} — tıklayarak geri dönün.`}
+                      aria-label="Katalog fiyatına dön"
+                      onClick={() => onRevertPrice(row.id)}
                     >
-                      <Trash2 className="size-3.5" />
+                      <PencilLine className="size-3.5" />
                     </button>
-                  </div>
-                );
-              })()}
-            </TableCell>
-          </TableRow>
+                  )}
+                </div>
+              </TableCell>
+
+              {/* Toplam */}
+              <TableCell className="border-border overflow-hidden border-r border-b py-1 pr-2 text-right font-mono text-sm font-medium">
+                {row.total.isZero() ? '' : formatTurkishNumber(row.total)}
+              </TableCell>
+
+              {/* Percentage */}
+              <TableCell className="border-border overflow-hidden border-r border-b py-1 pr-2 text-right font-mono text-sm font-medium">
+                {(() => {
+                  const pct = grandTotal.isZero()
+                    ? new Decimal(0)
+                    : row.total.div(grandTotal).times(100);
+                  return (
+                    <div className="flex items-center justify-end gap-1">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-default">{formatTurkishNumber(pct, 2)}%</span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <span className="font-mono">{formatTurkishNumber(pct, 8)}%</span>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <button
+                        className="text-muted-foreground hover:text-destructive ml-1 opacity-0 transition-opacity group-hover:opacity-100"
+                        onClick={() => onDeleteRow(row.id)}
+                        title="Satırı sil"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
+                  );
+                })()}
+              </TableCell>
+            </TableRow>
+          </React.Fragment>
         ))}
         {rows.length === 0 && (
           <TableRow>

@@ -33,6 +33,12 @@ export interface CostRow {
    * miktar hücresi düzenlenemez; `elleMiktar` kullanıcının önceki girdisini
    * saklar ve metraj kaldırılınca geri gelir.
    */
+  /**
+   * İş grubu (PROJE-02). Disiplin hazır listeden, iş grubu serbest metindir;
+   * ikisi de boşsa kalem "Gruplanmamış" bölümünde görünür.
+   */
+  disiplin?: string;
+  isGrubu?: string;
   metraj?: MetrajSatiri[];
   elleMiktar?: Decimal;
 }
