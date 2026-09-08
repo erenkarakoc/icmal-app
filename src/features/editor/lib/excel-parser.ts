@@ -13,6 +13,8 @@ export interface ParsedExcel {
   headers: string[];
   rows: ExcelRow[];
   sheetName: string;
+  /** Dosyadaki butun sayfalar; cok sayfali dosyada kullaniciya sunulur. */
+  sheetNames: string[];
 }
 
 export interface PriceUpdate {
@@ -36,12 +38,13 @@ export interface MatchResult {
 /**
  * Parse an Excel file and return its contents as a 2D array
  */
-export async function parseExcelFile(file: File): Promise<ParsedExcel> {
+export async function parseExcelFile(file: File, sheetIndex = 0): Promise<ParsedExcel> {
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: 'array' });
 
-  // Use the first sheet
-  const sheetName = workbook.SheetNames[0];
+  // Cok sayfali dosyada ilk sayfa SESSIZCE kullaniliyordu; kullanici yanlis
+  // veriyi aktardigini fark etmiyordu (Soru 24: dosya/sayfa secimi).
+  const sheetName = workbook.SheetNames[sheetIndex] ?? workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
 
   // Get the range of the sheet
@@ -81,6 +84,7 @@ export async function parseExcelFile(file: File): Promise<ParsedExcel> {
     headers,
     rows,
     sheetName,
+    sheetNames: workbook.SheetNames,
   };
 }
 

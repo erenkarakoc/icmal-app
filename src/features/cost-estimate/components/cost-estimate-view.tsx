@@ -1,5 +1,6 @@
 'use client';
 
+import Decimal from 'decimal.js';
 import { kaynakFiyatinaDon, satiriGuncelle } from '@shared/lib/satir-guncelle';
 import { satirTutari } from '@shared/lib/para';
 import React, { useState, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
@@ -134,9 +135,13 @@ export function CostEstimateView() {
           pozNo: r.pozNo,
           description: r.description,
           unit: r.unit,
-          quantity: r.quantity,
-          unitPrice: r.unitPrice,
-          total: satirTutari(r.quantity, r.unitPrice),
+          // Okunamayan hucre burada 0'a iner: satir modeli (CostRow) henuz
+          // null tasimiyor, bu TEMEL-04 kapsaminda ayri bir degisiklik. Fark
+          // SESSIZ degil -- onizleme her okunamayan hucreyi satir numarasiyla
+          // bildirir ve hucre bos gorunur.
+          quantity: r.quantity ?? new Decimal(0),
+          unitPrice: r.unitPrice ?? new Decimal(0),
+          total: satirTutari(r.quantity ?? new Decimal(0), r.unitPrice ?? new Decimal(0)),
           fiyatKaynagi: 'elle' as const,
           fromDatabase: false,
         }));

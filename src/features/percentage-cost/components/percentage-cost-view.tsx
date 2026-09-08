@@ -182,9 +182,12 @@ export function PercentageCostView() {
           pozNo: r.pozNo,
           description: r.description,
           unit: r.unit,
-          quantity: r.quantity,
-          unitPrice: r.unitPrice,
-          total: satirTutari(r.quantity, r.unitPrice),
+          // Okunamayan hucre burada 0'a iner; satir modeli henuz null tasimiyor
+          // (TEMEL-04 kapsami). Fark sessiz degil: onizleme her okunamayan
+          // hucreyi satir numarasiyla bildirir.
+          quantity: r.quantity ?? new Decimal(0),
+          unitPrice: r.unitPrice ?? new Decimal(0),
+          total: satirTutari(r.quantity ?? new Decimal(0), r.unitPrice ?? new Decimal(0)),
           fiyatKaynagi: 'elle' as const,
           percentageLow: new Decimal(0),
           percentageHigh: new Decimal(0),

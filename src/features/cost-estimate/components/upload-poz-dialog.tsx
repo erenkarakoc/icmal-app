@@ -82,12 +82,17 @@ export function UploadPozDialog({ open, onOpenChange, onApply }: UploadPozDialog
     [onOpenChange, resetState],
   );
 
-  const handleFileSelect = useCallback(async (selectedFile: File) => {
+  // Sayfa degistirilince dosya yeniden ayristirilir; secimi hatirlamak icin
+  // dosyanin kendisi tutulur.
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
+
+  const handleFileSelect = useCallback(async (selectedFile: File, sheetIndex = 0) => {
     setIsLoading(true);
     setError(null);
+    setSourceFile(selectedFile);
 
     try {
-      const parsed = await parseExcelFile(selectedFile);
+      const parsed = await parseExcelFile(selectedFile, sheetIndex);
       if (parsed.rows.length < 2) {
         setError('Excel dosyasında yeterli veri bulunamadı.');
         setIsLoading(false);
@@ -248,6 +253,30 @@ export function UploadPozDialog({ open, onOpenChange, onApply }: UploadPozDialog
           {/* Step 2: Column Mapping */}
           {step === 'column-mapping' && parsedExcel && (
             <div className="space-y-4">
+              {/* Cok sayfali dosyada ilk sayfa SESSIZCE kullaniliyordu; kullanici
+                  yanlis veriyi aktardigini fark etmiyordu (Soru 24). */}
+              {parsedExcel.sheetNames.length > 1 && (
+                <label className="flex items-center gap-2 text-sm">
+                  Sayfa
+                  <select
+                    className="border-input bg-background h-8 rounded-md border px-2 text-sm"
+                    value={parsedExcel.sheetName}
+                    onChange={(e) => {
+                      const index = parsedExcel.sheetNames.indexOf(e.target.value);
+                      if (sourceFile && index >= 0) void handleFileSelect(sourceFile, index);
+                    }}
+                  >
+                    {parsedExcel.sheetNames.map((ad) => (
+                      <option key={ad} value={ad}>
+                        {ad}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-muted-foreground text-xs">
+                    {parsedExcel.sheetNames.length} sayfa
+                  </span>
+                </label>
+              )}
               <div className="grid gap-4 sm:grid-cols-2">
                 {(
                   [
@@ -325,6 +354,15 @@ export function UploadPozDialog({ open, onOpenChange, onApply }: UploadPozDialog
                   <Check className="size-4 text-green-500" />
                   <span>{importResult.rows.length} satır aktarılacak</span>
                 </div>
+                {importResult.issues.length > 0 && (
+                  <span role="alert" className="text-destructive">
+                    {importResult.issues.length} hücre okunamadı, boş bırakıldı (satır{' '}
+                    {[...new Set(importResult.issues.map((i) => i.sourceRow))]
+                      .slice(0, 8)
+                      .join(', ')}
+                    {new Set(importResult.issues.map((i) => i.sourceRow)).size > 8 ? '…' : ''})
+                  </span>
+                )}
                 {importResult.skippedRows.length > 0 && (
                   <div className="text-muted-foreground">
                     {importResult.skippedRows.length} satır atlandı (boş poz no)
@@ -362,13 +400,15 @@ export function UploadPozDialog({ open, onOpenChange, onApply }: UploadPozDialog
                           </td>
                           <td className="px-3 py-2 text-xs">{row.unit}</td>
                           <td className="px-3 py-2 text-right font-mono">
-                            {formatTurkishNumber(row.quantity)}
+                            {row.quantity ? formatTurkishNumber(row.quantity) : '—'}
                           </td>
                           <td className="px-3 py-2 text-right font-mono">
-                            {formatTurkishNumber(row.unitPrice)}
+                            {row.unitPrice ? formatTurkishNumber(row.unitPrice) : '—'}
                           </td>
                           <td className="px-3 py-2 text-right font-mono font-medium">
-                            {formatTurkishNumber(satirTutari(row.quantity, row.unitPrice))}
+                            {row.quantity && row.unitPrice
+                              ? formatTurkishNumber(satirTutari(row.quantity, row.unitPrice))
+                              : '—'}
                           </td>
                         </tr>
                       ))}
