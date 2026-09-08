@@ -196,3 +196,41 @@ test('kaynagi olmayan eski satir elle sayilir', () => {
   ]);
   assert.equal(geri[0].fiyatKaynagi, 'elle');
 });
+
+// --- PROJE-04 · anlik goruntu degismezligi ----------------------------------
+
+test('katalog guncellemesi eski projeyi degistirmez', () => {
+  // PROJE-04 kabul olcutu. Bugun kendiliginden saglaniyor: proje acilirken
+  // katalog hic sorgulanmiyor, fiyat dosyadaki anlik goruntuden geliyor.
+  // Bu test o degismezligi kilitler; ileride "yeni fiyatlarla guncelle"
+  // eklenirse bunun ACIK bir kullanici eylemi olmasi gerekir.
+  const dosyaSatiri = {
+    id: 'a', pozNo: '15.100', description: 'Kazı', unit: 'm³',
+    quantity: '10', unitPrice: '123.45', priceSource: 'katalog',
+    source: { versionId: 'v1', priceId: 'p1', priceType: 'unit_price',
+      priceAmount: '123.45', currency: 'TRY', unit: 'm³', institution: 'CSB',
+      period: '2026 Nisan', book: 'Insaat', url: null, page: null },
+  };
+  const bir = restoreCostRows([dosyaSatiri]);
+  const iki = restoreCostRows([dosyaSatiri]);
+
+  assert.equal(bir[0].unitPrice.toString(), '123.45');
+  assert.equal(bir[0].source.priceAmount, '123.45');
+  assert.equal(bir[0].source.period, '2026 Nisan', 'kaynak donemi korunur');
+  assert.equal(iki[0].unitPrice.toString(), bir[0].unitPrice.toString(),
+    'ayni dosya ayni sonucu verir; disaridan fiyat sizmaz');
+  assert.equal(bir[0].total.toFixed(2), '1234.50');
+});
+
+test('kaydet/yeniden ac dongusunde kaynak anlik goruntusu bozulmaz', () => {
+  const kaynak = { versionId: 'v1', priceId: 'p1', priceType: 'unit_price',
+    priceAmount: '123.45', currency: 'TRY', unit: 'm³', institution: 'CSB',
+    period: '2026 Nisan', book: 'Insaat', url: null, page: null };
+  const satirlar = restoreCostRows([
+    { id: 'a', pozNo: '15.100', description: '', unit: 'm³', quantity: '1',
+      unitPrice: '123.45', priceSource: 'katalog', source: kaynak },
+  ]);
+  const geri = restoreCostRows(storeCostRows(satirlar));
+  assert.deepEqual(geri[0].source, kaynak);
+  assert.equal(geri[0].fiyatKaynagi, 'katalog');
+});
