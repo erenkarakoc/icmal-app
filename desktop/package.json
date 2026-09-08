@@ -1,6 +1,6 @@
 {
   "name": "icmal-desktop",
-  "version": "1.0.21",
+  "version": "1.0.22",
   "private": true,
   "engines": {
     "node": ">=24"
