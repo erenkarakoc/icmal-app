@@ -7,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@shared/components/ui/dialog';
+import { Loader2 } from 'lucide-react';
 import { Button } from '@shared/components/ui/button';
 import { ReleaseNotes } from './release-notes';
 
@@ -27,9 +28,15 @@ interface UpdateDialogProps {
  * ya da "indirme tamamlandı" türü bir metin yoktur.
  *
  * Başlık `updateReady` ile DEĞİŞMEZ: başlığın "hazır"a dönmesi indirmenin
- * bittiğini duyururdu. Hazır olduğunda yalnız kurulum düğmesi belirir; yeniden
- * başlatma uyarısı da o zaman görünür, çünkü kullanıcı işini kaydetmeden
- * yeniden başlatılmamalı.
+ * bittiğini duyururdu.
+ *
+ * Düğme her iki durumda da **aynı yerde durur**; yalnız metni ve etkinliği
+ * değişir. Hazır olmadan düğmenin hiç görünmemesi, sonra birden belirmesi de
+ * bir indirme sinyaliydi. "Güncelleme doğrulanıyor" bekleme durumunu anlatır
+ * ama neyin beklendiğini söylemez — indirmeden söz etmez.
+ *
+ * Yeniden başlatma uyarısı yalnız hazır olduğunda görünür, çünkü kullanıcı
+ * işini kaydetmeden yeniden başlatılmamalı.
  */
 export function UpdateDialog({
   open,
@@ -59,7 +66,16 @@ export function UpdateDialog({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Daha Sonra
           </Button>
-          {updateReady && <Button onClick={onInstall}>Güncelle ve Yeniden Başlat</Button>}
+          <Button onClick={onInstall} disabled={!updateReady} aria-live="polite">
+            {updateReady ? (
+              'Güncelle ve Yeniden Başlat'
+            ) : (
+              <>
+                <Loader2 aria-hidden className="size-4 animate-spin" />
+                Güncelleme doğrulanıyor
+              </>
+            )}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
