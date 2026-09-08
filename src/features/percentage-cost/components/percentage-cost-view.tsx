@@ -1,5 +1,6 @@
 'use client';
 
+import { kaynakFiyatinaDon, satiriGuncelle } from '@shared/lib/satir-guncelle';
 import { satirTutari } from '@shared/lib/para';
 import React, { useState, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
 import { Plus, Search, FileSpreadsheet } from 'lucide-react';
@@ -89,15 +90,9 @@ export function PercentageCostView() {
       setRows((prev) =>
         prev.map((row) => {
           if (row.id !== id) return row;
-          const updated = { ...row, ...updates };
-          if ('pozNo' in updates && !('source' in updates)) {
-            updated.source = undefined;
-            updated.fromDatabase = false;
-          }
-          // Recalculate total when quantity or unitPrice changes
-          if ('quantity' in updates || 'unitPrice' in updates) {
-            updated.total = satirTutari(updated.quantity, updated.unitPrice);
-          }
+          // Fiyat kaynagi ve tutar kurali ortak modulde; iki maliyet ekrani
+          // ayni sozlesmeyi kullanir.
+          const updated = satiriGuncelle(row, updates);
           // Recalculate estimatedCost when total, percentageLow, or percentageHigh changes
           if (
             'quantity' in updates ||
@@ -151,6 +146,15 @@ export function PercentageCostView() {
     [setRows],
   );
 
+  // K-06 Soru 3-4: kaynak fiyata donus ACIK bir kullanici secimidir; hicbir
+  // guncelleme kendiliginden yapmaz.
+  const handleRevertPrice = useCallback(
+    (id: string) => {
+      setRows((prev) => prev.map((row) => (row.id === id ? kaynakFiyatinaDon(row) : row)));
+    },
+    [setRows],
+  );
+
   const handleSort = useCallback((key: PercentageCostSortKey) => {
     setSortConfig((prev) => ({
       key,
@@ -181,6 +185,7 @@ export function PercentageCostView() {
           quantity: r.quantity,
           unitPrice: r.unitPrice,
           total: satirTutari(r.quantity, r.unitPrice),
+          fiyatKaynagi: 'elle' as const,
           percentageLow: new Decimal(0),
           percentageHigh: new Decimal(0),
           estimatedCost: new Decimal(0),
@@ -293,6 +298,7 @@ export function PercentageCostView() {
           onUpdateRow={updateRow}
           onDeleteRow={deleteRow}
           onPozSelect={handlePozSelect}
+          onRevertPrice={handleRevertPrice}
           onToggleRange={handleToggleRange}
           focusedRowId={focusedRowId}
         />

@@ -1,5 +1,6 @@
 'use client';
 
+import { kaynakFiyatinaDon, satiriGuncelle } from '@shared/lib/satir-guncelle';
 import { satirTutari } from '@shared/lib/para';
 import React, { useState, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
 import { Plus, Search, FileSpreadsheet } from 'lucide-react';
@@ -79,19 +80,8 @@ export function CostEstimateView() {
   const updateRow = useCallback(
     (id: string, updates: Partial<CostRow>) => {
       setRows((prev) =>
-        prev.map((row) => {
-          if (row.id !== id) return row;
-          const updated = { ...row, ...updates };
-          if ('pozNo' in updates && !('source' in updates)) {
-            updated.source = undefined;
-            updated.fromDatabase = false;
-          }
-          // Recalculate total when quantity or unitPrice changes
-          if ('quantity' in updates || 'unitPrice' in updates) {
-            updated.total = satirTutari(updated.quantity, updated.unitPrice);
-          }
-          return updated;
-        }),
+        // Kural ortak modulde: iki maliyet ekrani ayni sozlesmeyi kullanir.
+        prev.map((row) => (row.id === id ? satiriGuncelle(row, updates) : row)),
       );
     },
     [setRows],
@@ -109,6 +99,15 @@ export function CostEstimateView() {
       });
     },
     [updateRow],
+  );
+
+  // K-06 Soru 3-4: kaynak fiyata donus ACIK bir kullanici secimidir; hicbir
+  // guncelleme kendiliginden yapmaz.
+  const handleRevertPrice = useCallback(
+    (id: string) => {
+      setRows((prev) => prev.map((row) => (row.id === id ? kaynakFiyatinaDon(row) : row)));
+    },
+    [setRows],
   );
 
   const handleSort = useCallback((key: CostSortKey) => {
@@ -138,6 +137,7 @@ export function CostEstimateView() {
           quantity: r.quantity,
           unitPrice: r.unitPrice,
           total: satirTutari(r.quantity, r.unitPrice),
+          fiyatKaynagi: 'elle' as const,
           fromDatabase: false,
         }));
         return [...prev, ...newRows];
@@ -248,6 +248,7 @@ export function CostEstimateView() {
           onUpdateRow={updateRow}
           onDeleteRow={deleteRow}
           onPozSelect={handlePozSelect}
+          onRevertPrice={handleRevertPrice}
           focusedRowId={focusedRowId}
         />
       </div>

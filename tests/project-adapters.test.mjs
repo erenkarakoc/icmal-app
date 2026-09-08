@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import Decimal from 'decimal.js';
 import {
   restoreCostRows,
   storeCostRows,
@@ -43,7 +44,9 @@ test('percentage inputs survive and derived costs are recalculated', () => {
   };
   const rows = restorePercentageRows([stored]);
   assert.equal(rows[0].estimatedCost.toFixed(), '2000');
-  assert.deepEqual(storePercentageRows(rows), [stored]);
+  // PROJE-01.5'ten sonra etkin fiyat kaynagi da yazilir. Bu satirda kaynak
+  // yok, dolayisiyla 'elle'; beklenti bilerek guncellendi.
+  assert.deepEqual(storePercentageRows(rows), [{ ...stored, priceSource: 'elle' }]);
 });
 test('unsupported missing price rejects whole load without mutating input', () => {
   const data = [item, { ...item, id: 'b', unitPrice: null }];
@@ -145,4 +148,51 @@ test('yuklenen pursantaj satirinin tahmini maliyeti de kurusa iner', () => {
   ]);
   assert.equal(satirlar[0].estimatedCost.toFixed(2), '33333.33');
   assert.ok(satirlar[0].estimatedCost.decimalPlaces() <= 2);
+});
+
+// --- PROJE-01.5 · fiyat kaynagi ---------------------------------------------
+
+test('elle girilmis fiyat dosyada kaynak fiyattan ayri kayitli kalir', () => {
+  const kaynak = { versionId: 'v1', priceId: 'p1', priceType: 'unit_price',
+    priceAmount: '123.45', currency: 'TRY', unit: 'm³', institution: 'CSB',
+    period: '2026-01', book: 'Insaat', url: null, page: null };
+  const [yazilan] = storeCostRows([
+    { id: 'a', pozNo: '15.100', description: '', unit: 'm³',
+      quantity: new Decimal(1), unitPrice: new Decimal(200),
+      total: new Decimal(200), fromDatabase: true, source: kaynak,
+      fiyatKaynagi: 'elle' },
+  ]);
+  assert.equal(yazilan.priceSource, 'elle', 'etkin kaynak yazilmali');
+  assert.equal(yazilan.unitPrice, '200', 'hesapta kullanilan fiyat kullanicininki');
+  assert.equal(yazilan.source.priceAmount, '123.45', 'katalog fiyati referans olarak korunur');
+});
+
+test('gidis-donuste fiyat kaynagi korunur', () => {
+  const geri = restoreCostRows([
+    { id: 'a', pozNo: '15.100', description: '', unit: 'm³', quantity: '1',
+      unitPrice: '200', priceSource: 'elle',
+      source: { versionId: 'v1', priceId: null, priceType: 'unit_price',
+        priceAmount: '123.45', currency: 'TRY', unit: 'm³', institution: 'CSB',
+        period: '2026-01', book: 'Insaat', url: null, page: null } },
+  ]);
+  assert.equal(geri[0].fiyatKaynagi, 'elle');
+  assert.equal(geri[0].unitPrice.toString(), '200');
+});
+
+test('bu alandan onceki dosyada kaynak varliginda katalog sayilir', () => {
+  const geri = restoreCostRows([
+    { id: 'a', pozNo: '15.100', description: '', unit: 'm³', quantity: '1',
+      unitPrice: '123.45',
+      source: { versionId: 'v1', priceId: null, priceType: 'unit_price',
+        priceAmount: '123.45', currency: 'TRY', unit: 'm³', institution: 'CSB',
+        period: '2026-01', book: 'Insaat', url: null, page: null } },
+  ]);
+  assert.equal(geri[0].fiyatKaynagi, 'katalog');
+});
+
+test('kaynagi olmayan eski satir elle sayilir', () => {
+  const geri = restoreCostRows([
+    { id: 'a', pozNo: 'X', description: '', unit: '', quantity: '1', unitPrice: '5' },
+  ]);
+  assert.equal(geri[0].fiyatKaynagi, 'elle');
 });

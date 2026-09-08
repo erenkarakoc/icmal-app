@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js';
 import { satirTutari } from '../../../shared/lib/para.ts';
+import { cozulmusKaynak } from '../../../shared/lib/satir-guncelle.ts';
 import {
   getEffectivePercentage,
   calculateEstimatedCost,
@@ -18,6 +19,7 @@ export function storeCostRows(rows: CostRow[]): IcmalProject['costRows'] {
     unit: row.unit,
     quantity: row.quantity.toFixed(),
     unitPrice: row.unitPrice.toFixed(),
+    priceSource: cozulmusKaynak(row),
     ...(row.source
       ? { source: { ...row.source, priceAmount: new Decimal(row.source.priceAmount).toFixed() } }
       : {}),
@@ -41,6 +43,9 @@ export function restoreCostRows(rows: IcmalProject['costRows']): CostRow[] {
       // yazildigina yoksa dosyadan mi geldigine gore degisirdi.
       rowNumber: index + 1,
       total: satirTutari(quantity, unitPrice),
+      // Bu alandan onceki dosyalarda priceSource yoktur: kaynak varsa katalog
+      // sayilir, yoksa elle.
+      fiyatKaynagi: row.priceSource ?? (row.source ? ('katalog' as const) : ('elle' as const)),
       fromDatabase: !!row.source,
     };
   });

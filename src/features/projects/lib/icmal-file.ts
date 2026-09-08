@@ -30,6 +30,11 @@ const item = z.strictObject({
   quantity: decimal,
   unitPrice: decimal.nullable(),
   source: source.optional(),
+  // Etkin fiyat kaynagi (K-06 Soru 3-4). Istege baglidir: bu alandan onceki
+  // dosyalarda bulunmaz ve yoklugu "kaynak varsa katalog" diye cozulur.
+  // 'analiz' PROJE-03'te doldurulacak; yeri simdi acildi ki dosya bicimi
+  // ileride tekrar degismesin.
+  priceSource: z.enum(['katalog', 'elle', 'analiz']).optional(),
 });
 const percentageItem = item.extend({
   percentageLow: decimal,

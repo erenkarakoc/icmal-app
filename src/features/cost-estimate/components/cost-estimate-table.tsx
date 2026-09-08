@@ -2,7 +2,7 @@
 
 import React, { useCallback } from 'react';
 import Decimal from 'decimal.js';
-import { Trash2 } from 'lucide-react';
+import { Trash2, PencilLine } from 'lucide-react';
 import { TableBody, TableCell, TableHeader, TableRow } from '@shared/components/ui/table';
 import {
   Tooltip,
@@ -11,6 +11,7 @@ import {
   TooltipTrigger,
 } from '@shared/components/ui/tooltip';
 import { Input } from '@shared/components/ui/input';
+import { cozulmusKaynak } from '@shared/lib/satir-guncelle';
 import { SortableHead } from '@shared/components/sortable-head';
 import {
   formatTurkishNumber,
@@ -55,6 +56,7 @@ interface CostEstimateTableProps {
   onUpdateRow: (id: string, updates: Partial<CostRow>) => void;
   onDeleteRow: (id: string) => void;
   onPozSelect: (id: string, entry: PozEntry) => void;
+  onRevertPrice: (id: string) => void;
   focusedRowId: string | null;
 }
 
@@ -71,6 +73,7 @@ export function CostEstimateTable({
   onUpdateRow,
   onDeleteRow,
   onPozSelect,
+  onRevertPrice,
   focusedRowId,
 }: CostEstimateTableProps) {
   const totalTableWidth = VISIBLE_COLUMNS.reduce((sum, key) => sum + (columnWidths[key] || 0), 0);
@@ -212,17 +215,31 @@ export function CostEstimateTable({
 
             {/* Birim Fiyat */}
             <TableCell className="border-border overflow-hidden border-r border-b p-1">
-              <Input
-                className="h-8 text-right font-mono text-sm"
-                defaultValue={row.unitPrice.isZero() ? '' : formatTurkishExact(row.unitPrice)}
-                key={`price-${row.id}-${row.fromDatabase ? row.unitPrice.toString() : ''}`}
-                onFocus={(e) => {
-                  e.target.value = row.unitPrice.toFixed().replace('.', ',');
-                }}
-                onBlur={(e) => handleUnitPriceChange(row.id, e.target.value)}
-                onKeyDown={handleNumericKeyDown}
-                placeholder="0,00"
-              />
+              <div className="flex items-center gap-1">
+                <Input
+                  className="h-8 text-right font-mono text-sm"
+                  defaultValue={row.unitPrice.isZero() ? '' : formatTurkishExact(row.unitPrice)}
+                  key={`price-${row.id}-${row.fiyatKaynagi ?? ''}-${row.fromDatabase ? row.unitPrice.toString() : ''}`}
+                  onFocus={(e) => {
+                    e.target.value = row.unitPrice.toFixed().replace('.', ',');
+                  }}
+                  onBlur={(e) => handleUnitPriceChange(row.id, e.target.value)}
+                  onKeyDown={handleNumericKeyDown}
+                  placeholder="0,00"
+                />
+                {/* Elle girilmis fiyat: kaynak korunur, tek tikla geri donulur. */}
+                {row.source && cozulmusKaynak(row) === 'elle' && (
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground shrink-0"
+                    title={`Elle girilmiş fiyat. Katalog fiyatı: ${formatTurkishNumber(new Decimal(row.source.priceAmount))} — tıklayarak geri dönün.`}
+                    aria-label="Katalog fiyatına dön"
+                    onClick={() => onRevertPrice(row.id)}
+                  >
+                    <PencilLine className="size-3.5" />
+                  </button>
+                )}
+              </div>
             </TableCell>
 
             {/* Toplam */}

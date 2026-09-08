@@ -1,4 +1,5 @@
 import Decimal from 'decimal.js';
+import type { FiyatKaynagi } from '@shared/lib/satir-guncelle';
 import type { CatalogSource } from './lib/catalog';
 
 export interface PozEntry {
@@ -21,6 +22,11 @@ export interface CostRow {
   total: Decimal;
   fromDatabase: boolean;
   source?: CatalogSource;
+  /**
+   * Etkin fiyat kaynağı (K-06 Soru 3-4). `elle` iken `source` silinmez;
+   * kaynak fiyata dönüş açık bir seçimdir. `analiz` PROJE-03'te doldurulacak.
+   */
+  fiyatKaynagi?: FiyatKaynagi;
 }
 
 export type CostSortKey =
