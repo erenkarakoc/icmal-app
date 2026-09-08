@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import Decimal from 'decimal.js';
-import { Trash2, PencilLine, Ruler } from 'lucide-react';
+import { Trash2, PencilLine, Ruler, GripVertical } from 'lucide-react';
 import { TableBody, TableCell, TableHeader, TableRow } from '@shared/components/ui/table';
 import {
   Tooltip,
@@ -61,6 +61,7 @@ interface CostEstimateTableProps {
   onPozSelect: (id: string, entry: PozEntry) => void;
   onRevertPrice: (id: string) => void;
   onOpenMetraj: (id: string) => void;
+  onMoveToGroup: (id: string, disiplin: string, isGrubu: string) => void;
   focusedRowId: string | null;
 }
 
@@ -79,18 +80,38 @@ export function CostEstimateTable({
   onPozSelect,
   onRevertPrice,
   onOpenMetraj,
+  onMoveToGroup,
   focusedRowId,
 }: CostEstimateTableProps) {
   const totalTableWidth = VISIBLE_COLUMNS.reduce((sum, key) => sum + (columnWidths[key] || 0), 0);
 
   // Gruplama yalniz kullanilmissa gorunur; hicbir satirda grup yoksa tablo
   // eskisi gibi duz kalir.
+  // Suruklemek icin YALNIZ # sutunu tutamactir; satirin tamami suruklenirse
+  // hucrelerdeki metin secimi bozulur.
+  const [suruklenen, setSuruklenen] = useState<string | null>(null);
+  const [hedefGrup, setHedefGrup] = useState<string | null>(null);
+
   const gruplamaVar = rows.some((r) => r.disiplin?.trim() || r.isGrubu?.trim());
   const grupAnahtari = (r: CostRow) => `${(r.disiplin ?? '').trim()} ${(r.isGrubu ?? '').trim()}`;
   const grupBasligi = (r: CostRow) => {
     const parcalar = [(r.disiplin ?? '').trim(), (r.isGrubu ?? '').trim()].filter(Boolean);
     return parcalar.length ? parcalar.join(' › ') : GRUPSUZ_BASLIK;
   };
+  const uzerinde = (e: React.DragEvent, satir: CostRow) => {
+    if (!suruklenen) return;
+    e.preventDefault();
+    setHedefGrup(grupAnahtari(satir));
+  };
+
+  const birak = (e: React.DragEvent, satir: CostRow) => {
+    e.preventDefault();
+    setHedefGrup(null);
+    if (!suruklenen || suruklenen === satir.id) return;
+    onMoveToGroup(suruklenen, (satir.disiplin ?? '').trim(), (satir.isGrubu ?? '').trim());
+    setSuruklenen(null);
+  };
+
   const grupToplami = (hepsi: CostRow[], anahtar: string) =>
     kalemlerToplami(hepsi.filter((r) => grupAnahtari(r) === anahtar).map((r) => r.total));
 
@@ -183,7 +204,16 @@ export function CostEstimateTable({
                 bolum degistiginde baslik ve ara toplam yazilir. */}
             {gruplamaVar &&
               (index === 0 || grupAnahtari(rows[index - 1]) !== grupAnahtari(row)) && (
-                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                <TableRow
+                  className={
+                    hedefGrup === grupAnahtari(row)
+                      ? 'bg-primary/15 hover:bg-primary/15'
+                      : 'bg-muted/40 hover:bg-muted/40'
+                  }
+                  onDragOver={(e) => uzerinde(e, row)}
+                  onDragLeave={() => setHedefGrup(null)}
+                  onDrop={(e) => birak(e, row)}
+                >
                   <TableCell
                     colSpan={99}
                     className="border-border border-b py-1.5 text-xs font-medium"
@@ -197,10 +227,35 @@ export function CostEstimateTable({
                   </TableCell>
                 </TableRow>
               )}
-            <TableRow className="hover:bg-muted/30 odd:bg-muted/5 group">
-              {/* # */}
-              <TableCell className="text-muted-foreground border-border overflow-hidden border-r border-b py-1 text-center text-xs font-medium">
-                {row.rowNumber}
+            <TableRow
+              className={`hover:bg-muted/30 odd:bg-muted/5 group ${
+                suruklenen === row.id ? 'opacity-50' : ''
+              } ${hedefGrup === grupAnahtari(row) ? 'bg-primary/10' : ''}`}
+              onDragOver={(e) => uzerinde(e, row)}
+              onDragLeave={() => setHedefGrup(null)}
+              onDrop={(e) => birak(e, row)}
+            >
+              {/* # — ayni zamanda surukleme tutamaci */}
+              <TableCell
+                className="text-muted-foreground border-border cursor-grab overflow-hidden border-r border-b py-1 text-center text-xs font-medium active:cursor-grabbing"
+                draggable
+                title="Sürükleyerek başka bir gruba taşıyın"
+                onDragStart={(e) => {
+                  setSuruklenen(row.id);
+                  e.dataTransfer.effectAllowed = 'move';
+                }}
+                onDragEnd={() => {
+                  setSuruklenen(null);
+                  setHedefGrup(null);
+                }}
+              >
+                <span className="inline-flex items-center gap-1">
+                  <GripVertical
+                    aria-hidden
+                    className="size-3 opacity-0 transition-opacity group-hover:opacity-60"
+                  />
+                  {row.rowNumber}
+                </span>
               </TableCell>
 
               {/* Poz No */}

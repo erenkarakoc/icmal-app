@@ -319,6 +319,7 @@ export function CostEstimateView() {
           onPozSelect={handlePozSelect}
           onRevertPrice={handleRevertPrice}
           onOpenMetraj={setMetrajRowId}
+          onMoveToGroup={(id, disiplin, isGrubu) => updateRow(id, { disiplin, isGrubu })}
           focusedRowId={focusedRowId}
         />
       </div>
