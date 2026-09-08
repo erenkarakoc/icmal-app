@@ -1,9 +1,18 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
-import { Search, Info, Settings2, FileSpreadsheet, Download, Loader2, Calculator } from 'lucide-react';
+import {
+  Search,
+  Info,
+  Settings2,
+  FileSpreadsheet,
+  Download,
+  Loader2,
+  Calculator,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@shared/components/ui/button';
+import { Tutar } from '@shared/components/tutar';
 import { Input } from '@shared/components/ui/input';
 import { Separator } from '@shared/components/ui/separator';
 import { TableBody, TableCell, TableHeader, TableRow } from '@shared/components/ui/table';
@@ -391,7 +400,7 @@ export function EditorView({
   const handleBatchPriceUpdate = useCallback(
     (percentage: number, isIncrease: boolean) => {
       let updatedDoc = document;
-      const multiplier = isIncrease ? (1 + percentage / 100) : (1 - percentage / 100);
+      const multiplier = isIncrease ? 1 + percentage / 100 : 1 - percentage / 100;
 
       let updatedCount = 0;
       for (const item of document.items) {
@@ -402,7 +411,9 @@ export function EditorView({
         }
       }
       onUpdate(updatedDoc);
-      toast.success(`${updatedCount} kalemin fiyatı %${percentage} ${isIncrease ? 'artırıldı' : 'azaltıldı'}`);
+      toast.success(
+        `${updatedCount} kalemin fiyatı %${percentage} ${isIncrease ? 'artırıldı' : 'azaltıldı'}`,
+      );
     },
     [document, onUpdate],
   );
@@ -1091,9 +1102,7 @@ export function EditorView({
         </div>
         <div className="flex w-full items-center justify-between gap-2 md:w-auto md:justify-end">
           <span className="text-muted-foreground">Genel Toplam:</span>
-          <span className="text-foreground font-mono text-lg font-bold">
-            {formatTurkishNumber(grandTotal)}₺
-          </span>
+          <Tutar deger={grandTotal} vurgulu className="text-foreground" />
         </div>
       </div>
 
