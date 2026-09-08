@@ -82,6 +82,7 @@ export function TitleBar({ title, showAppReturn = false }: TitleBarProps) {
     releaseNotes: string | null;
   } | null>(null);
   const [updateReady, setUpdateReady] = useState(false);
+  const [updateFailed, setUpdateFailed] = useState(false);
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
 
   useEffect(() => {
@@ -94,14 +95,19 @@ export function TitleBar({ title, showAppReturn = false }: TitleBarProps) {
     const cleanupMaximize = window.electronAPI.onMaximizeChange(setIsMaximized);
     const cleanupAvail = window.electronAPI.onUpdateAvailable((info) => {
       setUpdateInfo(info);
+      setUpdateFailed(false);
       setShowUpdateDialog(true);
     });
+    // Bekleyen guncelleme dustuyse gosterge sonsuza kadar donmesin; kullanici
+    // tekrar deneyebilsin.
+    const cleanupError = window.electronAPI.onUpdateError(() => setUpdateFailed(true));
     // Diyalog burada YENIDEN ACILMAZ. Kendiliginden acilmasi indirmenin
     // bittigini duyururdu; indirme akisin hicbir yerinde belli edilmez
     // (2026-09-08). Kurulum dugmesi, kullanici diyalogu kendi actiginda
     // zaten gorunur olur.
     const cleanupDownloaded = window.electronAPI.onUpdateDownloaded(() => {
       setUpdateReady(true);
+      setUpdateFailed(false);
     });
     const cleanupStatus = window.electronAPI.onUpdateStatus(({ status, message }) => {
       if (status === 'checking') toast.info('Güncellemeler denetleniyor…');
@@ -111,6 +117,7 @@ export function TitleBar({ title, showAppReturn = false }: TitleBarProps) {
     return () => {
       cleanupMaximize();
       cleanupAvail();
+      cleanupError();
       cleanupDownloaded();
       cleanupStatus();
     };
@@ -273,7 +280,12 @@ export function TitleBar({ title, showAppReturn = false }: TitleBarProps) {
         onOpenChange={setShowUpdateDialog}
         updateInfo={updateInfo}
         updateReady={updateReady}
+        updateFailed={updateFailed}
         onInstall={() => window.electronAPI?.installUpdate()}
+        onRetry={() => {
+          setUpdateFailed(false);
+          void window.electronAPI?.retryUpdate();
+        }}
       />
     </>
   );

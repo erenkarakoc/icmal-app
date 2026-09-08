@@ -39,6 +39,8 @@ declare global {
       onUpdateAvailable: (
         callback: (info: { version: string; releaseNotes: string | null }) => void,
       ) => () => void;
+      onUpdateError: (callback: () => void) => () => void;
+      retryUpdate: () => Promise<unknown>;
       onUpdateDownloaded: (callback: () => void) => () => void;
       onUpdateStatus: (
         callback: (info: { status: 'checking' | 'current' | 'error'; message?: string }) => void,

@@ -13,6 +13,17 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
     }
   });
 
+  // Bekleyen guncelleme dusunce kullanicinin elle tekrar denemesi icin.
+  // Sessizdir: manualCheck acilmaz, yani "guncelsiniz" toast'i cikmaz.
+  ipcMain.handle('retry-update', () => {
+    if (!app.isPackaged) return Promise.resolve(null);
+    return autoUpdater.checkForUpdates().catch((err) => {
+      console.error('Retry failed:', err);
+      mainWindow.webContents.send('update-error');
+      return null;
+    });
+  });
+
   ipcMain.handle('check-for-updates', () => {
     if (app.isPackaged) {
       manualCheck = true;
@@ -62,6 +73,10 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
 
   autoUpdater.on('error', (err) => {
     console.error('Auto-updater error:', err);
+    // Diyalog acikken bekleyen guncelleme dusmus olabilir; gosterge sonsuza
+    // kadar donmesin diye arayuze her durumda bildirilir. Toast yalnizca
+    // kullanici elle denetlediyse cikar.
+    mainWindow.webContents.send('update-error');
     if (manualCheck) {
       mainWindow.webContents.send('update-status', {
         status: 'error',

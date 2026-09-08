@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@shared/components/ui/dialog';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@shared/components/ui/button';
 import { ReleaseNotes } from './release-notes';
 
@@ -16,7 +16,10 @@ interface UpdateDialogProps {
   onOpenChange: (open: boolean) => void;
   updateInfo: { version: string; releaseNotes: string | null } | null;
   updateReady: boolean;
+  /** Bekleyen güncelleme düştü; kullanıcı tekrar deneyebilir. */
+  updateFailed: boolean;
   onInstall: () => void;
+  onRetry: () => void;
 }
 
 /**
@@ -37,13 +40,18 @@ interface UpdateDialogProps {
  *
  * Yeniden başlatma uyarısı yalnız hazır olduğunda görünür, çünkü kullanıcı
  * işini kaydetmeden yeniden başlatılmamalı.
+ *
+ * Hazırlık düşerse gösterge sonsuza kadar dönmez: düğme "Tekrar Dene" olur.
+ * Hata metni de indirmeden söz etmez.
  */
 export function UpdateDialog({
   open,
   onOpenChange,
   updateInfo,
   updateReady,
+  updateFailed,
   onInstall,
+  onRetry,
 }: UpdateDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -62,20 +70,29 @@ export function UpdateDialog({
           </p>
         )}
 
+        {!updateReady && updateFailed && (
+          <p role="alert" className="text-destructive text-sm">
+            Güncelleme şu an hazırlanamadı. Bağlantınızı kontrol edip tekrar deneyebilirsiniz.
+          </p>
+        )}
+
         <DialogFooter className="gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Daha Sonra
           </Button>
-          <Button onClick={onInstall} disabled={!updateReady} aria-live="polite">
-            {updateReady ? (
-              'Güncelle ve Yeniden Başlat'
-            ) : (
-              <>
-                <Loader2 aria-hidden className="size-4 animate-spin" />
-                Güncelleme doğrulanıyor
-              </>
-            )}
-          </Button>
+          {updateReady ? (
+            <Button onClick={onInstall}>Güncelle ve Yeniden Başlat</Button>
+          ) : updateFailed ? (
+            <Button onClick={onRetry}>
+              <RefreshCw aria-hidden className="size-4" />
+              Tekrar Dene
+            </Button>
+          ) : (
+            <Button disabled aria-live="polite">
+              <Loader2 aria-hidden className="size-4 animate-spin" />
+              Güncelleme doğrulanıyor
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
