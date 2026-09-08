@@ -220,11 +220,18 @@ jobs:
           # ile okunamayan gecmis ayni sonucu verir ve hata gorunmez kalir.
           if ($LASTEXITCODE -ne 0) { throw "git log $aralik basarisiz; surum notu uretilemedi." }
 
+          # Hattin kendi bakimini kullaniciya anlatmanin anlami yok. release/ci/
+          # build kapsamlari notlarin disinda kalir; v1.0.20'de "surum notlari
+          # icin tam git gecmisi cekilsin" maddesi bu yuzden elle silinmisti.
+          $hatKapsamlari = 'release', 'ci', 'build', 'deps'
+
           $yeni = @(); $duzeltme = @()
           foreach ($satir in $satirlar) {
-            # "feat(kapsam): metin" -> "metin"
-            if ($satir -match '^feat(\([^)]*\))?!?:\s*(.+)$') { $yeni += $Matches[2] }
-            elseif ($satir -match '^fix(\([^)]*\))?!?:\s*(.+)$') { $duzeltme += $Matches[2] }
+            # "feat(kapsam): metin" -> kapsam + metin
+            if ($satir -notmatch '^(feat|fix)(\(([^)]*)\))?!?:\s*(.+)$') { continue }
+            $tur = $Matches[1]; $kapsam = $Matches[3]; $metin = $Matches[4]
+            if ($kapsam -and ($hatKapsamlari -contains $kapsam.ToLower())) { continue }
+            if ($tur -eq 'feat') { $yeni += $metin } else { $duzeltme += $metin }
           }
 
           $govde = @()
