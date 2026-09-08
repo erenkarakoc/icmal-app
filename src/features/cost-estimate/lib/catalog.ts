@@ -1,4 +1,5 @@
 import Decimal from 'decimal.js';
+import { farkliFiyatBirimi } from '../../../shared/lib/fiyat-sunumu.ts';
 import { z } from 'zod';
 
 const priceSchema = z.object({
@@ -9,9 +10,14 @@ const priceSchema = z.object({
   birim_ham: z.string().nullable().optional(),
 });
 const rowSchema = z.object({
-  poz_surumu_id: z.string(), poz_numarasi: z.string(), tanim: z.string(),
-  kurum_kodu: z.string(), kitap_adi: z.string(), donem: z.string(),
-  birim: z.string().nullable(), fiyatlar: z.array(priceSchema).nullable(),
+  poz_surumu_id: z.string(),
+  poz_numarasi: z.string(),
+  tanim: z.string(),
+  kurum_kodu: z.string(),
+  kitap_adi: z.string(),
+  donem: z.string(),
+  birim: z.string().nullable(),
+  fiyatlar: z.array(priceSchema).nullable(),
   kaynak_url: z.string().nullable().optional(),
   kaynak_sayfa: z.number().nullable().optional(),
 });
@@ -37,11 +43,15 @@ export interface CatalogEntry {
   unitPrice: Decimal;
   institution: string;
   source: CatalogSource;
+  /**
+   * Yalniz fiyatin birimi POZ birimînden farkliysa dolu olur; pozun kendi
+   * birimini tasir. Dolu olmasi "dikkat, donusum yapilmadi" demektir.
+   */
+  pozBirimi?: string | null;
 }
-export const priceLabels: Record<string, string> = {
-  unit_price: 'Birim fiyat', rayic: 'Rayiç', montage_price: 'Montaj',
-  demontage_price: 'Demontaj',
-};
+// Etiket sozlugu ortak modulde; burada kopyasi tutulmuyordu ve
+// alternate_unit_price eksikti (TEMEL-04).
+export { fiyatEtiketi } from '../../../shared/lib/fiyat-sunumu.ts';
 
 export function catalogEntries(data: unknown): CatalogEntry[] {
   const rows = z.array(rowSchema).parse(data);
@@ -51,20 +61,48 @@ export function catalogEntries(data: unknown): CatalogEntry[] {
       // Cost screens currently calculate in TRY; never silently mix currencies.
       if (price.para_birimi_kodu !== 'TRY') continue;
       const unit = price.birim_ham?.trim() || row.birim?.trim();
+      // Fiyat kendi biriminde; poz baska birimle olculuyorsa DONUSUM YAPILMAZ,
+      // kullaniciya soylenir (K-09 / TEMEL-04). Canli veride 98 satir boyle.
+      const farkliBirim = farkliFiyatBirimi(price.birim_ham, row.birim);
       if (!unit || String(price.tutar).trim() === '') continue;
       let amount: Decimal;
-      try { amount = new Decimal(price.tutar); } catch { continue; }
+      try {
+        amount = new Decimal(price.tutar);
+      } catch {
+        continue;
+      }
       if (!amount.isFinite()) continue;
       const source: CatalogSource = {
-        versionId: row.poz_surumu_id, priceId: price.id ?? null,
-        priceType: price.fiyat_turu, priceAmount: amount.toString(), currency: 'TRY',
-        unit, institution: row.kurum_kodu, period: row.donem, book: row.kitap_adi,
-        url: row.kaynak_url ?? null, page: row.kaynak_sayfa ?? null,
+        versionId: row.poz_surumu_id,
+        priceId: price.id ?? null,
+        priceType: price.fiyat_turu,
+        priceAmount: amount.toString(),
+        currency: 'TRY',
+        unit,
+        institution: row.kurum_kodu,
+        period: row.donem,
+        book: row.kitap_adi,
+        url: row.kaynak_url ?? null,
+        page: row.kaynak_sayfa ?? null,
       };
-      const key = JSON.stringify([source.versionId, source.priceId, source.priceType,
-        unit, source.priceAmount, source.currency]);
-      entries.set(key, { key, pozNo: row.poz_numarasi, description: row.tanim,
-        unit, unitPrice: amount, institution: row.kurum_kodu, source });
+      const key = JSON.stringify([
+        source.versionId,
+        source.priceId,
+        source.priceType,
+        unit,
+        source.priceAmount,
+        source.currency,
+      ]);
+      entries.set(key, {
+        key,
+        pozNo: row.poz_numarasi,
+        description: row.tanim,
+        unit,
+        unitPrice: amount,
+        institution: row.kurum_kodu,
+        source,
+        ...(farkliBirim ? { pozBirimi: row.birim?.trim() || null } : {}),
+      });
     }
   }
   return [...entries.values()];

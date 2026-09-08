@@ -6,6 +6,12 @@ import { BookOpen, Building2, CalendarDays, Loader2, LockKeyhole, Search } from 
 
 import { createClient } from '@shared/lib/supabase/client';
 import { pozAdaylari } from '@shared/lib/katalog-adaylari';
+import {
+  dahilRozetleri,
+  farkliFiyatBirimi,
+  fiyatEtiketi,
+  gosterilecekFiyat,
+} from '@shared/lib/fiyat-sunumu';
 import { Badge } from '@shared/components/ui/badge';
 import { Button } from '@shared/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@shared/components/ui/card';
@@ -23,6 +29,12 @@ interface PozFiyati {
   fiyat_turu: string;
   tutar: number;
   para_birimi_kodu: string;
+  // Bu alanlar v_poz_detay'dan ZATEN geliyordu; istemci tipi onlari
+  // dusurdugu icin kullaniciya hic ulasmiyordu (TEMEL-04).
+  birim_ham?: string | null;
+  kar_dahil_mi?: boolean | null;
+  kdv_dahil_mi?: boolean | null;
+  genel_giderler_dahil_mi?: boolean | null;
 }
 
 interface PozDetayi {
@@ -45,14 +57,6 @@ interface PozDetayi {
   analiz_satiri_sayisi: number | null;
   kaynak_url: string;
   kaynak_sayfa: number;
-}
-
-function fiyatEtiketi(tur: string) {
-  if (tur === 'unit_price') return 'Birim fiyat';
-  if (tur === 'montage_price') return 'Montaj';
-  if (tur === 'demontage_price') return 'Demontaj';
-  if (tur === 'rayic') return 'Rayiç';
-  return tur;
 }
 
 function para(tutar: number, kod: string) {
@@ -243,9 +247,13 @@ export function UnitPriceView() {
               </TableHeader>
               <TableBody>
                 {sonuclar.map((poz) => {
-                  const birimFiyat = poz.fiyatlar?.find(
-                    (fiyat) => fiyat.fiyat_turu === 'unit_price',
-                  );
+                  // Kilit YALNIZ erisim kisiti icindir. Birim fiyati olmayan
+                  // pozda varsa diger fiyat kendi etiketiyle gosterilir; canli
+                  // veride 5.563 poz bu durumda ve eskiden kilit goruyordu.
+                  const gosterilen = gosterilecekFiyat(poz.fiyatlar);
+                  const farkliBirim = gosterilen
+                    ? farkliFiyatBirimi(gosterilen.birim_ham, poz.birim)
+                    : null;
                   return (
                     <TableRow
                       key={poz.poz_surumu_id}
@@ -259,10 +267,27 @@ export function UnitPriceView() {
                       <TableCell className="text-sm">{poz.tanim}</TableCell>
                       <TableCell className="text-xs">{poz.birim || '—'}</TableCell>
                       <TableCell className="text-right font-mono text-xs">
-                        {fiyatErisim && birimFiyat ? (
-                          para(birimFiyat.tutar, birimFiyat.para_birimi_kodu)
+                        {!fiyatErisim ? (
+                          <LockKeyhole
+                            aria-label="Fiyat erişimi paketinizde kapalı"
+                            className="text-muted-foreground ml-auto size-3.5"
+                          />
+                        ) : gosterilen ? (
+                          <span className="flex flex-col items-end">
+                            <span>
+                              {para(gosterilen.tutar, gosterilen.para_birimi_kodu)}
+                              {farkliBirim && (
+                                <span className="text-destructive">{` /${farkliBirim}`}</span>
+                              )}
+                            </span>
+                            {gosterilen.fiyat_turu !== 'unit_price' && (
+                              <span className="text-muted-foreground font-sans">
+                                {fiyatEtiketi(gosterilen.fiyat_turu)}
+                              </span>
+                            )}
+                          </span>
                         ) : (
-                          <LockKeyhole className="text-muted-foreground ml-auto size-3.5" />
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
                       <TableCell className="text-xs">{poz.donem}</TableCell>
@@ -321,17 +346,39 @@ export function UnitPriceView() {
                   {fiyatErisim ? (
                     secili.fiyatlar?.length ? (
                       <div className="space-y-2">
-                        {secili.fiyatlar.map((fiyat) => (
-                          <div
-                            key={`${fiyat.fiyat_turu}-${fiyat.para_birimi_kodu}`}
-                            className="flex items-center justify-between rounded-md border p-3"
-                          >
-                            <span className="text-sm">{fiyatEtiketi(fiyat.fiyat_turu)}</span>
-                            <span className="font-mono text-sm font-semibold">
-                              {para(fiyat.tutar, fiyat.para_birimi_kodu)}
-                            </span>
-                          </div>
-                        ))}
+                        {secili.fiyatlar.map((fiyat) => {
+                          const farkli = farkliFiyatBirimi(fiyat.birim_ham, secili.birim);
+                          const rozetler = dahilRozetleri(fiyat);
+                          return (
+                            <div
+                              key={`${fiyat.fiyat_turu}-${fiyat.para_birimi_kodu}-${fiyat.birim_ham ?? ''}`}
+                              className="rounded-md border p-3"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm">{fiyatEtiketi(fiyat.fiyat_turu)}</span>
+                                <span className="font-mono text-sm font-semibold">
+                                  {para(fiyat.tutar, fiyat.para_birimi_kodu)}
+                                  {farkli && (
+                                    <span className="text-destructive">{` /${farkli}`}</span>
+                                  )}
+                                </span>
+                              </div>
+                              {/* Birim yalniz POZ birimînden farkliysa yazilir; ayniysa
+                                  tekrar etmek gurultu olur. */}
+                              {farkli && (
+                                <p role="alert" className="text-destructive mt-1 text-xs">
+                                  Bu fiyat {farkli} birimine ait, poz {secili.birim || '—'}{' '}
+                                  birimiyle ölçülüyor. Dönüşüm yapılmaz.
+                                </p>
+                              )}
+                              {rozetler.length > 0 && (
+                                <p className="text-muted-foreground mt-1 text-xs">
+                                  {rozetler.join(' · ')}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     ) : (
                       <p className="text-muted-foreground text-sm">
