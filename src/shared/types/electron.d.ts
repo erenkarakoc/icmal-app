@@ -4,7 +4,6 @@ export interface YerelMotorDurumu {
   electron: true;
   calismaKoku: string | null;
   worker: { calisiyor: boolean; pid: number | null; baslamaZamani: string | null };
-  ollama: { hazir: boolean; url: string; hata?: string };
 }
 
 export interface CalismaAlaniGirdisi {
@@ -48,8 +47,6 @@ declare global {
       checkForUpdates: () => Promise<void>;
       localEngineStatus: () => Promise<YerelMotorDurumu>;
       chooseWorkspace: () => Promise<YerelMotorDurumu>;
-      verifyOllama: () => Promise<YerelMotorDurumu>;
-      startOllama: () => Promise<YerelMotorDurumu>;
       startLocalEngine: () => Promise<YerelMotorDurumu>;
       stopLocalEngine: () => Promise<YerelMotorDurumu>;
       readEngineLogs: () => Promise<string[]>;

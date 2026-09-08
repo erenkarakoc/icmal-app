@@ -14,11 +14,9 @@ import {
   listWorkspace,
   readEngineLogs,
   readWorkspaceFile,
-  startOllama,
   startLocalEngine,
   stopAllManagedProcesses,
   stopLocalEngine,
-  verifyOllama,
   writeWorkspaceFile,
 } from './local-engine';
 
@@ -186,8 +184,6 @@ ipcMain.on('window-close', () => mainWindow?.close());
 ipcMain.handle('window-is-maximized', () => mainWindow?.isMaximized() ?? false);
 ipcMain.handle('local-engine-status', () => getEngineStatus());
 ipcMain.handle('local-engine-choose-workspace', () => chooseWorkspace());
-ipcMain.handle('local-engine-verify-ollama', () => verifyOllama());
-ipcMain.handle('local-engine-start-ollama', () => startOllama());
 ipcMain.handle('local-engine-start', () => startLocalEngine());
 ipcMain.handle('local-engine-stop', () => stopLocalEngine());
 ipcMain.handle('local-engine-logs', () => readEngineLogs());

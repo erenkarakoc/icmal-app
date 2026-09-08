@@ -61,8 +61,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   localEngineStatus: () => ipcRenderer.invoke('local-engine-status'),
   chooseWorkspace: () => ipcRenderer.invoke('local-engine-choose-workspace'),
-  verifyOllama: () => ipcRenderer.invoke('local-engine-verify-ollama'),
-  startOllama: () => ipcRenderer.invoke('local-engine-start-ollama'),
   startLocalEngine: () => ipcRenderer.invoke('local-engine-start'),
   stopLocalEngine: () => ipcRenderer.invoke('local-engine-stop'),
   readEngineLogs: () => ipcRenderer.invoke('local-engine-logs'),

@@ -4,7 +4,6 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const OLLAMA_URL = 'http://127.0.0.1:11434';
 const MAX_FILE_BYTES = 1024 * 1024;
 const MAX_LOG_LINES = 1000;
 const BLOCKED_SEGMENTS = new Set([
@@ -53,11 +52,9 @@ interface EngineStatus {
   electron: true;
   calismaKoku: string | null;
   worker: { calisiyor: boolean; pid: number | null; baslamaZamani: string | null };
-  ollama: { hazir: boolean; url: string; hata?: string };
 }
 
 let worker: ManagedProcess | null = null;
-let ollama: ManagedProcess | null = null;
 let workspaceRoot: string | null = null;
 const logs: string[] = [];
 
@@ -172,47 +169,6 @@ function alive(value: ManagedProcess | null): value is ManagedProcess {
   return Boolean(value && value.process.exitCode === null && !value.process.killed);
 }
 
-async function ollamaHealth(): Promise<{ hazir: boolean; hata?: string }> {
-  try {
-    const response = await fetch(`${OLLAMA_URL}/api/tags`, { signal: AbortSignal.timeout(1800) });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return { hazir: true };
-  } catch (error) {
-    return { hazir: false, hata: error instanceof Error ? error.message : String(error) };
-  }
-}
-
-async function ensureOllama(): Promise<void> {
-  if ((await ollamaHealth()).hazir) return;
-  if (!alive(ollama)) {
-    ollama = attachProcess(
-      'ollama',
-      spawn('ollama.exe', ['serve'], {
-        cwd: requireRoot(),
-        windowsHide: true,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      }),
-    );
-  }
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    if ((await ollamaHealth()).hazir) return;
-  }
-  throw new Error('Ollama başlatıldı ancak sağlık kontrolüne yanıt vermedi.');
-}
-
-export async function verifyOllama(): Promise<EngineStatus> {
-  appendLog('ollama', 'Sağlık doğrulaması istendi.');
-  return getEngineStatus();
-}
-
-export async function startOllama(): Promise<EngineStatus> {
-  requireRoot();
-  await ensureOllama();
-  appendLog('ollama', 'Ollama hazır.');
-  return getEngineStatus();
-}
-
 function stopManaged(value: ManagedProcess | null, source: string): void {
   if (!alive(value)) return;
   value.process.kill();
@@ -220,7 +176,6 @@ function stopManaged(value: ManagedProcess | null, source: string): void {
 }
 
 export async function getEngineStatus(): Promise<EngineStatus> {
-  const health = await ollamaHealth();
   return {
     electron: true,
     calismaKoku: loadRoot(),
@@ -229,7 +184,6 @@ export async function getEngineStatus(): Promise<EngineStatus> {
       pid: alive(worker) ? (worker.process.pid ?? null) : null,
       baslamaZamani: alive(worker) ? worker.startedAt : null,
     },
-    ollama: { ...health, url: OLLAMA_URL },
   };
 }
 
@@ -249,7 +203,6 @@ export async function chooseWorkspace(): Promise<EngineStatus> {
 export async function startLocalEngine(): Promise<EngineStatus> {
   const root = requireRoot();
   if (alive(worker)) return getEngineStatus();
-  await ensureOllama();
   const candidates = [
     path.join(root, '.venv', 'Scripts', 'python.exe'),
     path.join(root, 'venv', 'Scripts', 'python.exe'),
@@ -261,7 +214,7 @@ export async function startLocalEngine(): Promise<EngineStatus> {
     'worker',
     spawn(python, ['-m', 'worker.main'], {
       cwd: root,
-      env: { ...process.env, KAMU_POZ_WORKSPACE_ROOT: root, OLLAMA_BASE_URL: OLLAMA_URL },
+      env: { ...process.env, KAMU_POZ_WORKSPACE_ROOT: root },
       windowsHide: true,
       stdio: ['pipe', 'pipe', 'pipe'],
     }),
@@ -280,9 +233,7 @@ export async function stopLocalEngine(): Promise<EngineStatus> {
 
 export function stopAllManagedProcesses(): void {
   stopManaged(worker, 'worker');
-  stopManaged(ollama, 'ollama');
   worker = null;
-  ollama = null;
 }
 
 export function readEngineLogs(): string[] {
