@@ -78,10 +78,16 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
       console.error('Failed to check for updates:', err);
     });
 
-  // Ilk denetim acilistan kisa sure sonra; ardindan yarim saatte bir. Uzun
-  // acik kalan pencerelerde yeni surum acilisi beklemeden yakalanir.
+  // Ilk denetim acilistan kisa sure sonra; ardindan bes dakikada bir
+  // (kullanici karari 2026-09-08, onceki deger yarim saatti). Uzun acik kalan
+  // pencerelerde yeni surum acilisi beklemeden yakalanir.
+  //
+  // Denetim yalnizca GitHub release akisini okur; yeni surum yoksa indirme
+  // olmaz. Sik denetim kullaniciya gorunmez, cunku indirme de bildirim de
+  // arka planda kalir (bkz. update-dialog.tsx).
+  const DENETIM_ARALIGI_MS = 5 * 60 * 1000;
   const ilk = setTimeout(denetle, 3000);
-  const donemsel = setInterval(denetle, 30 * 60 * 1000);
+  const donemsel = setInterval(denetle, DENETIM_ARALIGI_MS);
 
   // Pencere kapaninca zamanlayicilar kalmasin.
   mainWindow.on('closed', () => {
