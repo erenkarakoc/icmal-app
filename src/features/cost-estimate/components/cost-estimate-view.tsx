@@ -1,7 +1,9 @@
 'use client';
 
 import Decimal from 'decimal.js';
-import { kaynakFiyatinaDon, satiriGuncelle } from '@shared/lib/satir-guncelle';
+import { kaynakFiyatinaDon, metrajiUygula, satiriGuncelle } from '@shared/lib/satir-guncelle';
+import { metrajToplami, type MetrajSatiri } from '@features/projects/lib/metraj';
+import { MetrajPanel } from '@features/projects/components/metraj-panel';
 import { satirTutari } from '@shared/lib/para';
 import React, { useState, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
 import { Plus, Search, FileSpreadsheet } from 'lucide-react';
@@ -32,6 +34,8 @@ export function CostEstimateView() {
     direction: 'asc' | 'desc' | null;
   }>({ key: null, direction: null });
   const [focusedRowId, setFocusedRowId] = useState<string | null>(null);
+  // Metraj satir bazlidir; hangi kaleme ait oldugu acik olmali.
+  const [metrajRowId, setMetrajRowId] = useState<string | null>(null);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
@@ -107,6 +111,17 @@ export function CostEstimateView() {
   const handleRevertPrice = useCallback(
     (id: string) => {
       setRows((prev) => prev.map((row) => (row.id === id ? kaynakFiyatinaDon(row) : row)));
+    },
+    [setRows],
+  );
+
+  const handleMetrajChange = useCallback(
+    (id: string, metraj: MetrajSatiri[]) => {
+      setRows((prev) =>
+        prev.map((row) =>
+          row.id === id ? metrajiUygula(row, metraj, metrajToplami(metraj)) : row,
+        ),
+      );
     },
     [setRows],
   );
@@ -254,11 +269,32 @@ export function CostEstimateView() {
           onDeleteRow={deleteRow}
           onPozSelect={handlePozSelect}
           onRevertPrice={handleRevertPrice}
+          onOpenMetraj={setMetrajRowId}
           focusedRowId={focusedRowId}
         />
       </div>
 
       <div className="shrink-0 overflow-auto px-4">
+        {metrajRowId &&
+          (() => {
+            const satir = rows.find((r) => r.id === metrajRowId);
+            if (!satir) return null;
+            return (
+              <div>
+                <div className="text-muted-foreground mt-6 flex items-center gap-2 text-sm">
+                  <span>{satir.pozNo || satir.description || 'Adsız kalem'} — metraj</span>
+                  <button type="button" className="underline" onClick={() => setMetrajRowId(null)}>
+                    kapat
+                  </button>
+                </div>
+                <MetrajPanel
+                  satirlar={satir.metraj ?? []}
+                  birim={satir.unit}
+                  onChange={(m) => handleMetrajChange(satir.id, m)}
+                />
+              </div>
+            );
+          })()}
         <ExpensesPanel kalemToplami={grandTotal} />
         {toplamMaliyet && <OfferPanel toplamMaliyet={toplamMaliyet} rows={rows} />}
       </div>

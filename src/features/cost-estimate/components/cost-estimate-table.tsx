@@ -2,7 +2,7 @@
 
 import React, { useCallback } from 'react';
 import Decimal from 'decimal.js';
-import { Trash2, PencilLine } from 'lucide-react';
+import { Trash2, PencilLine, Ruler } from 'lucide-react';
 import { TableBody, TableCell, TableHeader, TableRow } from '@shared/components/ui/table';
 import {
   Tooltip,
@@ -57,6 +57,7 @@ interface CostEstimateTableProps {
   onDeleteRow: (id: string) => void;
   onPozSelect: (id: string, entry: PozEntry) => void;
   onRevertPrice: (id: string) => void;
+  onOpenMetraj: (id: string) => void;
   focusedRowId: string | null;
 }
 
@@ -74,6 +75,7 @@ export function CostEstimateTable({
   onDeleteRow,
   onPozSelect,
   onRevertPrice,
+  onOpenMetraj,
   focusedRowId,
 }: CostEstimateTableProps) {
   const totalTableWidth = VISIBLE_COLUMNS.reduce((sum, key) => sum + (columnWidths[key] || 0), 0);
@@ -200,17 +202,40 @@ export function CostEstimateTable({
 
             {/* Miktar */}
             <TableCell className="border-border overflow-hidden border-r border-b p-1">
-              <Input
-                className="h-8 text-right font-mono text-sm"
-                defaultValue={row.quantity.isZero() ? '' : formatTurkishExact(row.quantity)}
-                key={`qty-${row.id}`}
-                onFocus={(e) => {
-                  e.target.value = row.quantity.toFixed().replace('.', ',');
-                }}
-                onBlur={(e) => handleQuantityChange(row.id, e.target.value)}
-                onKeyDown={handleNumericKeyDown}
-                placeholder="0,00"
-              />
+              <div className="flex items-center gap-1">
+                <Input
+                  className="h-8 text-right font-mono text-sm"
+                  defaultValue={row.quantity.isZero() ? '' : formatTurkishExact(row.quantity)}
+                  key={`qty-${row.id}-${row.metraj?.length ?? 0}-${row.metraj?.length ? row.quantity.toString() : ''}`}
+                  // Metraj varsa miktar ONDAN gelir; elle yazilmasi sessizce
+                  // metraji gecersiz kilardi.
+                  readOnly={!!row.metraj?.length}
+                  title={row.metraj?.length ? 'Miktar metrajdan hesaplanıyor' : undefined}
+                  onFocus={(e) => {
+                    e.target.value = row.quantity.toFixed().replace('.', ',');
+                  }}
+                  onBlur={(e) => handleQuantityChange(row.id, e.target.value)}
+                  onKeyDown={handleNumericKeyDown}
+                  placeholder="0,00"
+                />
+                <button
+                  type="button"
+                  className={
+                    row.metraj?.length
+                      ? 'text-foreground shrink-0'
+                      : 'text-muted-foreground hover:text-foreground shrink-0'
+                  }
+                  title={
+                    row.metraj?.length
+                      ? `${row.metraj.length} ölçü satırı — düzenlemek için tıklayın`
+                      : 'Mahal bazlı metraj ekle'
+                  }
+                  aria-label="Metraj"
+                  onClick={() => onOpenMetraj(row.id)}
+                >
+                  <Ruler className="size-3.5" />
+                </button>
+              </div>
             </TableCell>
 
             {/* Birim Fiyat */}
