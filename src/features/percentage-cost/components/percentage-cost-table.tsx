@@ -5,6 +5,7 @@ import React, { useCallback } from 'react';
 import { Trash2, ChevronsLeftRight, PencilLine } from 'lucide-react';
 import { TableBody, TableCell, TableHeader, TableRow } from '@shared/components/ui/table';
 import { Input } from '@shared/components/ui/input';
+import { Button } from '@shared/components/ui/button';
 import { cozulmusKaynak } from '@shared/lib/satir-guncelle';
 import { SortableHead } from '@shared/components/sortable-head';
 import {
@@ -244,15 +245,16 @@ export function PercentageCostTable({
                 />
                 {/* Elle girilmis fiyat: kaynak korunur, tek tikla geri donulur. */}
                 {row.source && cozulmusKaynak(row) === 'elle' && (
-                  <button
-                    type="button"
-                    className="text-muted-foreground hover:text-foreground shrink-0"
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 shrink-0"
                     title={`Elle girilmiş fiyat. Katalog fiyatı: ${formatTurkishNumber(new Decimal(row.source.priceAmount))} — tıklayarak geri dönün.`}
                     aria-label="Katalog fiyatına dön"
                     onClick={() => onRevertPrice(row.id)}
                   >
                     <PencilLine className="size-3.5" />
-                  </button>
+                  </Button>
                 )}
               </div>
             </TableCell>

@@ -7,7 +7,7 @@ import { gruplaraAyir, kullanilanDisiplinler } from '@features/projects/lib/is-g
 import { MetrajPanel } from '@features/projects/components/metraj-panel';
 import { satirTutari } from '@shared/lib/para';
 import React, { useState, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
-import { Plus, Search, FileSpreadsheet } from 'lucide-react';
+import { Plus, Search, FileSpreadsheet, Calculator } from 'lucide-react';
 
 import { useProjectSession } from '@features/projects/components/project-session';
 import { ProjectFileToolbar } from '@features/projects/components/project-file-toolbar';
@@ -15,9 +15,26 @@ import { ExpensesPanel } from '@features/projects/components/expenses-panel';
 import { OfferPanel } from '@features/projects/components/offer-panel';
 import {
   giderleriHesapla,
+  giderToplami,
   toplamMaliyet as toplamMaliyetHesapla,
 } from '@features/projects/lib/giderler';
+import { karHesapla } from '@features/projects/lib/teklif';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from '@shared/components/ui/drawer';
 import { Button } from '@shared/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@shared/components/ui/dialog';
+import { Label } from '@shared/components/ui/label';
 import { Input } from '@shared/components/ui/input';
 import { formatTurkishNumber } from '@shared/lib/turkish-number';
 import { CostEstimateTable } from './cost-estimate-table';
@@ -27,7 +44,13 @@ import type { CostRow, CostSortKey, PozEntry } from '../types';
 import type { ImportedRow } from '../lib/excel-import';
 
 export function CostEstimateView() {
-  const { costRows: rows, setCostRows: setRows, generation, giderler } = useProjectSession();
+  const {
+    costRows: rows,
+    setCostRows: setRows,
+    generation,
+    giderler,
+    teklifYontemi,
+  } = useProjectSession();
   const [fileRevision, setFileRevision] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortConfig, setSortConfig] = useState<{
@@ -37,6 +60,7 @@ export function CostEstimateView() {
   const [focusedRowId, setFocusedRowId] = useState<string | null>(null);
   // Metraj satir bazlidir; hangi kaleme ait oldugu acik olmali.
   const [metrajRowId, setMetrajRowId] = useState<string | null>(null);
+  const [altPanelAcik, setAltPanelAcik] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
@@ -214,6 +238,15 @@ export function CostEstimateView() {
   }, [rows, searchQuery, sortConfig]);
 
   const grandTotal = useMemo(() => calculateGrandTotal(rows), [rows]);
+  const tl = (d: Decimal) => `${formatTurkishNumber(d)} TL`;
+  // Serit yalniz OKUMA icindir; hesaplarin kendisi panellerde durur.
+  const giderToplamiTutar = useMemo(() => {
+    try {
+      return giderToplami(giderleriHesapla(grandTotal, giderler));
+    } catch {
+      return null;
+    }
+  }, [grandTotal, giderler]);
   const toplamMaliyet = useMemo(() => {
     try {
       return toplamMaliyetHesapla(grandTotal, giderleriHesapla(grandTotal, giderler));
@@ -223,6 +256,16 @@ export function CostEstimateView() {
       return null;
     }
   }, [grandTotal, giderler]);
+
+  const teklifTutari = useMemo(() => {
+    if (!teklifYontemi || !toplamMaliyet) return null;
+    try {
+      return karHesapla(toplamMaliyet, teklifYontemi).teklif;
+    } catch {
+      // Gecersiz oran/tutar girisi seridi dusurmemeli.
+      return null;
+    }
+  }, [teklifYontemi, toplamMaliyet]);
 
   return (
     <div data-project-editor className="flex h-full flex-col">
@@ -290,55 +333,110 @@ export function CostEstimateView() {
       </div>
 
       <div className="shrink-0 overflow-auto px-4">
-        {metrajRowId &&
-          (() => {
-            const satir = rows.find((r) => r.id === metrajRowId);
-            if (!satir) return null;
-            return (
-              <div>
-                <div className="text-muted-foreground mt-6 flex items-center gap-2 text-sm">
-                  <span>{satir.pozNo || satir.description || 'Adsız kalem'} — kalem ayrıntısı</span>
-                  <button type="button" className="underline" onClick={() => setMetrajRowId(null)}>
-                    kapat
-                  </button>
-                </div>
-                {/* Kalem grubu: disiplin hazir listeden, is grubu serbest.
-                    Katalog disiplini tasimadigi icin otomatik atanmaz. */}
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-                  <label className="flex items-center gap-1">
-                    Disiplin
-                    <input
-                      className="border-input bg-background h-8 w-36 rounded-md border px-2"
-                      list="disiplin-listesi"
-                      defaultValue={satir.disiplin ?? ''}
-                      onBlur={(e) => updateRow(satir.id, { disiplin: e.target.value })}
-                    />
-                  </label>
-                  <datalist id="disiplin-listesi">
-                    {kullanilanDisiplinler(rows).map((d) => (
-                      <option key={d} value={d} />
-                    ))}
-                  </datalist>
-                  <label className="flex items-center gap-1">
-                    İş grubu
-                    <input
-                      className="border-input bg-background h-8 w-44 rounded-md border px-2"
-                      placeholder="Kaba Yapı"
-                      defaultValue={satir.isGrubu ?? ''}
-                      onBlur={(e) => updateRow(satir.id, { isGrubu: e.target.value })}
-                    />
-                  </label>
-                </div>
-                <MetrajPanel
-                  satirlar={satir.metraj ?? []}
-                  birim={satir.unit}
-                  onChange={(m) => handleMetrajChange(satir.id, m)}
-                />
-              </div>
-            );
-          })()}
-        <ExpensesPanel kalemToplami={grandTotal} />
-        {toplamMaliyet && <OfferPanel toplamMaliyet={toplamMaliyet} rows={rows} />}
+        {/* Kalem ayrintisi tabloyu asagi itiyordu; odakli duzenleme icin
+            diyaloga alindi. Kapatma DialogContent'in kendi dugmesinde. */}
+        <Dialog open={!!metrajRowId} onOpenChange={(acik) => !acik && setMetrajRowId(null)}>
+          <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
+            {(() => {
+              const satir = rows.find((r) => r.id === metrajRowId);
+              if (!satir) return null;
+              return (
+                <>
+                  <DialogHeader>
+                    <DialogTitle>{satir.pozNo || satir.description || 'Adsız kalem'}</DialogTitle>
+                    <DialogDescription>
+                      Kalemin grubunu ve mahal bazlı metrajını buradan düzenleyin.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  {/* Disiplin hazir listeden, is grubu serbest. Katalog
+                      disiplini tasimadigi icin otomatik atanmaz. */}
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="kalem-disiplin">Disiplin</Label>
+                      <Input
+                        id="kalem-disiplin"
+                        className="w-40"
+                        list="disiplin-listesi"
+                        defaultValue={satir.disiplin ?? ''}
+                        onBlur={(e) => updateRow(satir.id, { disiplin: e.target.value })}
+                      />
+                      <datalist id="disiplin-listesi">
+                        {kullanilanDisiplinler(rows).map((d) => (
+                          <option key={d} value={d} />
+                        ))}
+                      </datalist>
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="kalem-is-grubu">İş grubu</Label>
+                      <Input
+                        id="kalem-is-grubu"
+                        className="w-48"
+                        placeholder="Kaba Yapı"
+                        defaultValue={satir.isGrubu ?? ''}
+                        onBlur={(e) => updateRow(satir.id, { isGrubu: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <MetrajPanel
+                    satirlar={satir.metraj ?? []}
+                    birim={satir.unit}
+                    onChange={(m) => handleMetrajChange(satir.id, m)}
+                  />
+                </>
+              );
+            })()}
+          </DialogContent>
+        </Dialog>
+
+        {/* Gider ve teklif panelleri ekranin altini kapliyordu; asil is olan
+            cetvel icin yer birakmak uzere alt panele tasindi. Anahtar sayilar
+            seritte GORUNUR kalir; panel yalniz duzenleme icin acilir. */}
+        <div className="bg-background/95 sticky bottom-0 mt-4 flex flex-wrap items-center gap-x-6 gap-y-1 border-t py-2 text-sm backdrop-blur">
+          <span className="text-muted-foreground">
+            İş kalemleri <span className="text-foreground font-mono">{tl(grandTotal)}</span>
+          </span>
+          {giderToplamiTutar && !giderToplamiTutar.isZero() && (
+            <span className="text-muted-foreground">
+              Giderler <span className="text-foreground font-mono">{tl(giderToplamiTutar)}</span>
+            </span>
+          )}
+          {toplamMaliyet && (
+            <span className="font-medium">
+              Toplam maliyet <span className="font-mono">{tl(toplamMaliyet)}</span>
+            </span>
+          )}
+          {teklifTutari && (
+            <span className="font-medium">
+              Teklif <span className="font-mono">{tl(teklifTutari)}</span>
+            </span>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto"
+            onClick={() => setAltPanelAcik(true)}
+          >
+            <Calculator className="size-3.5" />
+            Gider ve teklif
+          </Button>
+        </div>
+
+        <Drawer open={altPanelAcik} onOpenChange={setAltPanelAcik}>
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>Gider, kâr ve teklif</DrawerTitle>
+              <DrawerDescription>
+                Giderler ve kâr yöntemi burada düzenlenir; sonuçlar alttaki şeritte görünür.
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="overflow-y-auto px-4 pb-6">
+              <ExpensesPanel kalemToplami={grandTotal} />
+              {toplamMaliyet && <OfferPanel toplamMaliyet={toplamMaliyet} rows={rows} />}
+            </div>
+          </DrawerContent>
+        </Drawer>
       </div>
 
       {/* Status Bar */}

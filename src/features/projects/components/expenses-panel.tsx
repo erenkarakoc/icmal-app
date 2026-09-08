@@ -32,8 +32,12 @@ export function ExpensesPanel({ kalemToplami }: { kalemToplami: Decimal }) {
       // Döngüsel taban hesabı tanımsız kılar; sayı uydurmak yerine sebebi söylenir.
       return {
         sonuclar: [],
-        hata: e instanceof GiderDongusuHatasi ? e.message
-          : e instanceof Error ? e.message : 'Giderler hesaplanamadı.',
+        hata:
+          e instanceof GiderDongusuHatasi
+            ? e.message
+            : e instanceof Error
+              ? e.message
+              : 'Giderler hesaplanamadı.',
       };
     }
   }, [kalemToplami, giderler]);
@@ -78,7 +82,11 @@ export function ExpensesPanel({ kalemToplami }: { kalemToplami: Decimal }) {
         </Button>
       </div>
 
-      {hesap.hata && <p role="alert" className="text-destructive mb-3 text-sm">{hesap.hata}</p>}
+      {hesap.hata && (
+        <p role="alert" className="text-destructive mb-3 text-sm">
+          {hesap.hata}
+        </p>
+      )}
 
       {giderler.length === 0 ? (
         <p className="text-muted-foreground text-sm">

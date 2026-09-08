@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { FolderOpen } from 'lucide-react';
 import { Button } from '@shared/components/ui/button';
 
-type Reference = {id: string; path: string; name: string; openedAt: string; missing: boolean};
+type Reference = { id: string; path: string; name: string; openedAt: string; missing: boolean };
 
 const SHOWN = 5;
 
@@ -84,7 +84,11 @@ export function LocalProjectsSection() {
         Bilgisayarınızdaki `.icmal` dosyaları. Listeden kaldırmak dosyayı silmez.
       </p>
 
-      {error && <p role="alert" className="text-destructive mb-2 text-xs">{error}</p>}
+      {error && (
+        <p role="alert" className="text-destructive mb-2 text-xs">
+          {error}
+        </p>
+      )}
 
       <ul className="divide-y rounded-md border">
         {rows.slice(0, SHOWN).map((row) => (

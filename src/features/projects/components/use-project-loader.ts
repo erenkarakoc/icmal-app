@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { decodeProject } from '../lib/icmal-file';
-import { restoreCostRows, restoreGiderler, restorePercentageRows, restoreTeklif, storeCostRows, storePercentageRows } from '../lib/row-adapters';
+import {
+  restoreCostRows,
+  restoreGiderler,
+  restorePercentageRows,
+  restoreTeklif,
+  storeCostRows,
+  storePercentageRows,
+} from '../lib/row-adapters';
 import { useProjectSession } from './project-session';
 import type { CostRow } from '../../cost-estimate/types';
 import type { PercentageCostRow } from '../../percentage-cost/types';
@@ -42,8 +49,12 @@ export function useProjectLoader() {
 
     // Onay cozmeden SONRA sorulur: gecersiz bir dosya icin kullaniciyi
     // bosuna uyarmayalim.
-    if (aktif.current.dirty &&
-        !window.confirm('Kaydedilmemiş değişiklikler var. Projeyi açıp mevcut çalışmayı değiştirmek istiyor musunuz?')) {
+    if (
+      aktif.current.dirty &&
+      !window.confirm(
+        'Kaydedilmemiş değişiklikler var. Projeyi açıp mevcut çalışmayı değiştirmek istiyor musunuz?',
+      )
+    ) {
       return false;
     }
 
@@ -59,14 +70,16 @@ export function useProjectLoader() {
     o.setHesapProjeId(secenek.hesapProjeId);
     o.setProject(loaded);
     o.setName(loaded.name);
-    o.setBaseline(JSON.stringify({
-      name: loaded.name,
-      costRows: storeCostRows(costRows),
-      percentageRows: storePercentageRows(percentageRows),
-      giderler: restoreGiderler(loaded.expenses),
-      teklifYontemi: restoreTeklif(loaded.offer).yontem,
-      sabitTeklifler: restoreTeklif(loaded.offer).sabitler,
-    }));
+    o.setBaseline(
+      JSON.stringify({
+        name: loaded.name,
+        costRows: storeCostRows(costRows),
+        percentageRows: storePercentageRows(percentageRows),
+        giderler: restoreGiderler(loaded.expenses),
+        teklifYontemi: restoreTeklif(loaded.offer).yontem,
+        sabitTeklifler: restoreTeklif(loaded.offer).sabitler,
+      }),
+    );
     secenek.onRows?.(costRows, percentageRows);
     return true;
   }, []);

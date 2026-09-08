@@ -14,6 +14,13 @@ import {
 } from 'lucide-react';
 
 import { Button } from '@shared/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@shared/components/ui/select';
 import { Label } from '@shared/components/ui/label';
 import {
   Dialog,
@@ -258,20 +265,24 @@ export function UploadPozDialog({ open, onOpenChange, onApply }: UploadPozDialog
               {parsedExcel.sheetNames.length > 1 && (
                 <label className="flex items-center gap-2 text-sm">
                   Sayfa
-                  <select
-                    className="border-input bg-background h-8 rounded-md border px-2 text-sm"
+                  <Select
                     value={parsedExcel.sheetName}
-                    onChange={(e) => {
-                      const index = parsedExcel.sheetNames.indexOf(e.target.value);
+                    onValueChange={(ad) => {
+                      const index = parsedExcel.sheetNames.indexOf(ad);
                       if (sourceFile && index >= 0) void handleFileSelect(sourceFile, index);
                     }}
                   >
-                    {parsedExcel.sheetNames.map((ad) => (
-                      <option key={ad} value={ad}>
-                        {ad}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="h-8 w-48">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {parsedExcel.sheetNames.map((ad) => (
+                        <SelectItem key={ad} value={ad}>
+                          {ad}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <span className="text-muted-foreground text-xs">
                     {parsedExcel.sheetNames.length} sayfa
                   </span>

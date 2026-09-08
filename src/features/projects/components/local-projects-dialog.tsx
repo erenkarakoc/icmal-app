@@ -10,8 +10,8 @@ import {
 } from '@shared/components/ui/dialog';
 import { Button } from '@shared/components/ui/button';
 
-type Reference = {id: string; path: string; name: string; openedAt: string; missing: boolean};
-type Opened = {bytes: Uint8Array; token: string};
+type Reference = { id: string; path: string; name: string; openedAt: string; missing: boolean };
+type Opened = { bytes: Uint8Array; token: string };
 
 type Props = {
   open: boolean;
@@ -20,7 +20,7 @@ type Props = {
   onOpen: (payload: Opened) => Promise<boolean>;
 };
 
-export function LocalProjectsDialog({open, onOpenChange, onOpen}: Props) {
+export function LocalProjectsDialog({ open, onOpenChange, onOpen }: Props) {
   const [rows, setRows] = useState<Reference[]>([]);
   const [fault, setFault] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -92,8 +92,16 @@ export function LocalProjectsDialog({open, onOpenChange, onOpen}: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        {fault && <p role="status" className="text-muted-foreground text-sm">{fault}</p>}
-        {error && <p role="alert" className="text-destructive text-sm">{error}</p>}
+        {fault && (
+          <p role="status" className="text-muted-foreground text-sm">
+            {fault}
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="text-destructive text-sm">
+            {error}
+          </p>
+        )}
 
         {loading && rows.length === 0 ? (
           <p className="text-muted-foreground text-sm">Liste yükleniyor…</p>
@@ -135,7 +143,12 @@ export function LocalProjectsDialog({open, onOpenChange, onOpen}: Props) {
                     Aç
                   </Button>
                 )}
-                <Button variant="ghost" size="sm" disabled={busy} onClick={() => void forget(row.id)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => void forget(row.id)}
+                >
                   Listeden kaldır
                 </Button>
               </li>

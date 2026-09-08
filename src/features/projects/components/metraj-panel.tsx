@@ -4,6 +4,8 @@ import Decimal from 'decimal.js';
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@shared/components/ui/button';
 import { Input } from '@shared/components/ui/input';
+import { Checkbox } from '@shared/components/ui/checkbox';
+import { Label } from '@shared/components/ui/label';
 import { formatTurkishExact, parseTurkishNumber } from '@shared/lib/turkish-number';
 import {
   araToplam,
@@ -110,14 +112,13 @@ export function MetrajPanel({
                     onBlur={(e) => olcuYaz(satir.id, alan, e.target.value)}
                   />
                 ))}
-                <label className="flex items-center gap-1 text-xs">
-                  <input
-                    type="checkbox"
+                <Label className="flex items-center gap-1.5 text-xs font-normal">
+                  <Checkbox
                     checked={satir.minha}
-                    onChange={(e) => guncelle(satir.id, { minha: e.target.checked })}
+                    onCheckedChange={(deger) => guncelle(satir.id, { minha: deger === true })}
                   />
                   Minha
-                </label>
+                </Label>
                 <span
                   className={`w-28 text-right font-mono ${satir.minha ? 'text-destructive' : ''}`}
                 >

@@ -11,6 +11,7 @@ import {
   TooltipTrigger,
 } from '@shared/components/ui/tooltip';
 import { Input } from '@shared/components/ui/input';
+import { Button } from '@shared/components/ui/button';
 import { cozulmusKaynak } from '@shared/lib/satir-guncelle';
 import { kalemlerToplami } from '@shared/lib/para';
 import { GRUPSUZ_BASLIK } from '@features/projects/lib/is-gruplari';
@@ -250,12 +251,11 @@ export function CostEstimateTable({
                     onKeyDown={handleNumericKeyDown}
                     placeholder="0,00"
                   />
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     className={
-                      row.metraj?.length
-                        ? 'text-foreground shrink-0'
-                        : 'text-muted-foreground hover:text-foreground shrink-0'
+                      row.metraj?.length ? 'text-foreground size-7 shrink-0' : 'size-7 shrink-0'
                     }
                     title={
                       row.metraj?.length
@@ -266,7 +266,7 @@ export function CostEstimateTable({
                     onClick={() => onOpenMetraj(row.id)}
                   >
                     <Ruler className="size-3.5" />
-                  </button>
+                  </Button>
                 </div>
               </TableCell>
 
@@ -286,15 +286,16 @@ export function CostEstimateTable({
                   />
                   {/* Elle girilmis fiyat: kaynak korunur, tek tikla geri donulur. */}
                   {row.source && cozulmusKaynak(row) === 'elle' && (
-                    <button
-                      type="button"
-                      className="text-muted-foreground hover:text-foreground shrink-0"
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 shrink-0"
                       title={`Elle girilmiş fiyat. Katalog fiyatı: ${formatTurkishNumber(new Decimal(row.source.priceAmount))} — tıklayarak geri dönün.`}
                       aria-label="Katalog fiyatına dön"
                       onClick={() => onRevertPrice(row.id)}
                     >
                       <PencilLine className="size-3.5" />
-                    </button>
+                    </Button>
                   )}
                 </div>
               </TableCell>
