@@ -20,6 +20,20 @@ export function storeCostRows(rows: CostRow[]): IcmalProject['costRows'] {
     quantity: row.quantity.toFixed(),
     unitPrice: row.unitPrice.toFixed(),
     priceSource: cozulmusKaynak(row),
+    ...(row.metraj?.length
+      ? {
+          takeoff: row.metraj.map((m) => ({
+            id: m.id,
+            mahal: m.mahal,
+            adet: m.adet?.toFixed() ?? null,
+            boy: m.boy?.toFixed() ?? null,
+            en: m.en?.toFixed() ?? null,
+            yukseklik: m.yukseklik?.toFixed() ?? null,
+            minha: m.minha,
+          })),
+        }
+      : {}),
+    ...(row.elleMiktar ? { manualQuantity: row.elleMiktar.toFixed() } : {}),
     ...(row.source
       ? { source: { ...row.source, priceAmount: new Decimal(row.source.priceAmount).toFixed() } }
       : {}),
@@ -46,6 +60,20 @@ export function restoreCostRows(rows: IcmalProject['costRows']): CostRow[] {
       // Bu alandan onceki dosyalarda priceSource yoktur: kaynak varsa katalog
       // sayilir, yoksa elle.
       fiyatKaynagi: row.priceSource ?? (row.source ? ('katalog' as const) : ('elle' as const)),
+      ...(row.takeoff
+        ? {
+            metraj: row.takeoff.map((m) => ({
+              id: m.id,
+              mahal: m.mahal,
+              adet: m.adet === null ? null : new Decimal(m.adet),
+              boy: m.boy === null ? null : new Decimal(m.boy),
+              en: m.en === null ? null : new Decimal(m.en),
+              yukseklik: m.yukseklik === null ? null : new Decimal(m.yukseklik),
+              minha: m.minha,
+            })),
+          }
+        : {}),
+      ...(row.manualQuantity ? { elleMiktar: new Decimal(row.manualQuantity) } : {}),
       fromDatabase: !!row.source,
     };
   });

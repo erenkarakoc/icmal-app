@@ -22,6 +22,9 @@ export type FiyatKaynagi = 'katalog' | 'elle' | 'analiz';
 export interface FiyatliSatir {
   pozNo: string;
   quantity: Decimal;
+  /** Metraj satirlari; doluysa miktar ondan gelir (PROJE-02). */
+  metraj?: { minha: boolean }[];
+  elleMiktar?: Decimal;
   unitPrice: Decimal;
   total: Decimal;
   fromDatabase: boolean;
@@ -54,11 +57,38 @@ export function satiriGuncelle<T extends FiyatliSatir>(satir: T, degisiklik: Par
     yeni.fiyatKaynagi = 'elle';
   }
 
+  // Miktar elle yazildi: metraj yokken saklanan deger de guncellenir ki
+  // metraj eklenip kaldirildiginda kullanici kendi sayisini geri bulsun.
+  if ('quantity' in degisiklik && !yeni.metraj?.length) {
+    yeni.elleMiktar = yeni.quantity;
+  }
+
   if ('quantity' in degisiklik || 'unitPrice' in degisiklik) {
     yeni.total = satirTutari(yeni.quantity, yeni.unitPrice);
   }
 
   return yeni;
+}
+
+/**
+ * Metraj degisince miktari yeniden baglar (PROJE-02).
+ *
+ * Metraj varsa miktar ONDAN gelir; yoksa kullanicinin elle yazdigi deger geri
+ * doner. Elle deger hicbir zaman silinmez -- metraj eklemek kullanicinin
+ * girdigi sayiyi kaybettirmemeli.
+ */
+export function metrajiUygula<T extends FiyatliSatir>(
+  satir: T,
+  metraj: NonNullable<T['metraj']>,
+  toplam: Decimal,
+): T {
+  const miktar = metraj.length ? toplam : (satir.elleMiktar ?? new Decimal(0));
+  return {
+    ...satir,
+    metraj,
+    quantity: miktar,
+    total: satirTutari(miktar, satir.unitPrice),
+  };
 }
 
 /**

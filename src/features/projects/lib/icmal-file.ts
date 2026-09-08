@@ -35,6 +35,25 @@ const item = z.strictObject({
   // 'analiz' PROJE-03'te doldurulacak; yeri simdi acildi ki dosya bicimi
   // ileride tekrar degismesin.
   priceSource: z.enum(['katalog', 'elle', 'analiz']).optional(),
+  // Mahal bazli metraj (PROJE-02 · Soru 25). Istege baglidir; bu alandan
+  // onceki dosyalarda bulunmaz ve miktar dogrudan `quantity`den gelir.
+  // Bos birakilan olcu carpima girmez, bu yuzden hepsi nullable.
+  takeoff: z
+    .array(
+      z.strictObject({
+        id,
+        mahal: z.string().max(200),
+        adet: decimal.nullable(),
+        boy: decimal.nullable(),
+        en: decimal.nullable(),
+        yukseklik: decimal.nullable(),
+        minha: z.boolean(),
+      }),
+    )
+    .max(5000)
+    .optional(),
+  /** Metraj eklenmeden once elle yazilan miktar; metraj kalkinca geri doner. */
+  manualQuantity: decimal.optional(),
 });
 const percentageItem = item.extend({
   percentageLow: decimal,

@@ -36,33 +36,58 @@ const ARITMETIK = /\.times\(|\.dividedBy\(|\.div\(/;
 /** Gözden geçirilmiş hesaplar: kod parçası → neden sözleşme dışı olabildiği. */
 const IZINLI = new Map([
   // --- Sozlesmeden GECEN hesaplar (kurusaYuvarla/satirTutari ile sarili) ---
-  ['return kurusaYuvarla(total.div(effectivePercentage).times(100));',
-    'Tahmini maliyet tutardir; kurusaYuvarla ile sarili.'],
-  ['return kurusaYuvarla(sumProduct.div(sumPercentage));',
-    'Agirlikli ortalama tutardir; kurusaYuvarla ile sarili.'],
-  [': taban.times(new Decimal(gider.deger)).dividedBy(100),',
-    'Gider tutari; cagri kurusaYuvarla(...) icinde.'],
-  ['? toplamMaliyet.times(new Decimal(yontem.deger)).dividedBy(100)',
-    'Oranli kar; cagri kurusaYuvarla(...) icinde.'],
+  [
+    'return kurusaYuvarla(total.div(effectivePercentage).times(100));',
+    'Tahmini maliyet tutardir; kurusaYuvarla ile sarili.',
+  ],
+  [
+    'return kurusaYuvarla(sumProduct.div(sumPercentage));',
+    'Agirlikli ortalama tutardir; kurusaYuvarla ile sarili.',
+  ],
+  [
+    ': taban.times(new Decimal(gider.deger)).dividedBy(100),',
+    'Gider tutari; cagri kurusaYuvarla(...) icinde.',
+  ],
+  [
+    '? toplamMaliyet.times(new Decimal(yontem.deger)).dividedBy(100)',
+    'Oranli kar; cagri kurusaYuvarla(...) icinde.',
+  ],
 
   // --- Tutar URETMEYEN hesaplar ---
-  [': row.total.div(grandTotal).times(100);',
-    'Satirin toplam icindeki PAY YUZDESI; para degil, gosterim orani.'],
-  ['if (lowPositive && highPositive) return low.plus(high).div(2);',
-    'Etkin pursantaj bir ORANDIR. K-10 oranlari tam hassasiyette tutar; '
-    + 'yuvarlanmis oranla bolmek tahmini kaydirirdi.'],
-  ['sumProduct = sumProduct.plus(row.estimatedCost.times(pct));',
-    'Ara toplam; sonuc doner donmez kurusa iniyor.'],
-  ['const tamPay = kalan.times(satir.maliyet).dividedBy(serbestMaliyet);',
-    'Tam pay; hemen ardindan kurusa kirpilip artik en buyuk kalan '
-    + 'yontemiyle dagitiliyor.'],
-  ['const adet = artik.abs().dividedBy(kurus).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toNumber();',
-    'Dagitilacak KURUS ADEDI; tutar degil sayac.'],
-  ['return miktar.isZero() ? null : teklifTutari.dividedBy(miktar);',
-    'Teklif birim fiyati. K-10 birim fiyati kurusa indirmez; en cok 6 '
-    + 'ondalikla GOSTERILIR.'],
-  ['const decimalPart = abs.minus(integerPart).times(100).round().toNumber();',
-    'Tutari yaziya cevirirken kurus hanesini ayirma; yeni tutar uretmez.'],
+  [
+    ': row.total.div(grandTotal).times(100);',
+    'Satirin toplam icindeki PAY YUZDESI; para degil, gosterim orani.',
+  ],
+  [
+    'if (lowPositive && highPositive) return low.plus(high).div(2);',
+    'Etkin pursantaj bir ORANDIR. K-10 oranlari tam hassasiyette tutar; ' +
+      'yuvarlanmis oranla bolmek tahmini kaydirirdi.',
+  ],
+  [
+    'sumProduct = sumProduct.plus(row.estimatedCost.times(pct));',
+    'Ara toplam; sonuc doner donmez kurusa iniyor.',
+  ],
+  [
+    'const tamPay = kalan.times(satir.maliyet).dividedBy(serbestMaliyet);',
+    'Tam pay; hemen ardindan kurusa kirpilip artik en buyuk kalan ' + 'yontemiyle dagitiliyor.',
+  ],
+  [
+    'const adet = artik.abs().dividedBy(kurus).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toNumber();',
+    'Dagitilacak KURUS ADEDI; tutar degil sayac.',
+  ],
+  [
+    'return miktar.isZero() ? null : teklifTutari.dividedBy(miktar);',
+    'Teklif birim fiyati. K-10 birim fiyati kurusa indirmez; en cok 6 ' + 'ondalikla GOSTERILIR.',
+  ],
+  [
+    'sonuc = sonuc === null ? deger : sonuc.times(deger);',
+    'Metraj olcularinin carpimi MIKTAR uretir, tutar degil. K-10 kaynak ve ' +
+      'kullanici miktarini tam hassasiyette tutar; kurusa yuvarlanmaz.',
+  ],
+  [
+    'const decimalPart = abs.minus(integerPart).times(100).round().toNumber();',
+    'Tutari yaziya cevirirken kurus hanesini ayirma; yeni tutar uretmez.',
+  ],
 ]);
 
 function dosyalariTara(kok) {

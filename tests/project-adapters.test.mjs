@@ -153,14 +153,32 @@ test('yuklenen pursantaj satirinin tahmini maliyeti de kurusa iner', () => {
 // --- PROJE-01.5 · fiyat kaynagi ---------------------------------------------
 
 test('elle girilmis fiyat dosyada kaynak fiyattan ayri kayitli kalir', () => {
-  const kaynak = { versionId: 'v1', priceId: 'p1', priceType: 'unit_price',
-    priceAmount: '123.45', currency: 'TRY', unit: 'm³', institution: 'CSB',
-    period: '2026-01', book: 'Insaat', url: null, page: null };
+  const kaynak = {
+    versionId: 'v1',
+    priceId: 'p1',
+    priceType: 'unit_price',
+    priceAmount: '123.45',
+    currency: 'TRY',
+    unit: 'm³',
+    institution: 'CSB',
+    period: '2026-01',
+    book: 'Insaat',
+    url: null,
+    page: null,
+  };
   const [yazilan] = storeCostRows([
-    { id: 'a', pozNo: '15.100', description: '', unit: 'm³',
-      quantity: new Decimal(1), unitPrice: new Decimal(200),
-      total: new Decimal(200), fromDatabase: true, source: kaynak,
-      fiyatKaynagi: 'elle' },
+    {
+      id: 'a',
+      pozNo: '15.100',
+      description: '',
+      unit: 'm³',
+      quantity: new Decimal(1),
+      unitPrice: new Decimal(200),
+      total: new Decimal(200),
+      fromDatabase: true,
+      source: kaynak,
+      fiyatKaynagi: 'elle',
+    },
   ]);
   assert.equal(yazilan.priceSource, 'elle', 'etkin kaynak yazilmali');
   assert.equal(yazilan.unitPrice, '200', 'hesapta kullanilan fiyat kullanicininki');
@@ -169,11 +187,28 @@ test('elle girilmis fiyat dosyada kaynak fiyattan ayri kayitli kalir', () => {
 
 test('gidis-donuste fiyat kaynagi korunur', () => {
   const geri = restoreCostRows([
-    { id: 'a', pozNo: '15.100', description: '', unit: 'm³', quantity: '1',
-      unitPrice: '200', priceSource: 'elle',
-      source: { versionId: 'v1', priceId: null, priceType: 'unit_price',
-        priceAmount: '123.45', currency: 'TRY', unit: 'm³', institution: 'CSB',
-        period: '2026-01', book: 'Insaat', url: null, page: null } },
+    {
+      id: 'a',
+      pozNo: '15.100',
+      description: '',
+      unit: 'm³',
+      quantity: '1',
+      unitPrice: '200',
+      priceSource: 'elle',
+      source: {
+        versionId: 'v1',
+        priceId: null,
+        priceType: 'unit_price',
+        priceAmount: '123.45',
+        currency: 'TRY',
+        unit: 'm³',
+        institution: 'CSB',
+        period: '2026-01',
+        book: 'Insaat',
+        url: null,
+        page: null,
+      },
+    },
   ]);
   assert.equal(geri[0].fiyatKaynagi, 'elle');
   assert.equal(geri[0].unitPrice.toString(), '200');
@@ -181,11 +216,27 @@ test('gidis-donuste fiyat kaynagi korunur', () => {
 
 test('bu alandan onceki dosyada kaynak varliginda katalog sayilir', () => {
   const geri = restoreCostRows([
-    { id: 'a', pozNo: '15.100', description: '', unit: 'm³', quantity: '1',
+    {
+      id: 'a',
+      pozNo: '15.100',
+      description: '',
+      unit: 'm³',
+      quantity: '1',
       unitPrice: '123.45',
-      source: { versionId: 'v1', priceId: null, priceType: 'unit_price',
-        priceAmount: '123.45', currency: 'TRY', unit: 'm³', institution: 'CSB',
-        period: '2026-01', book: 'Insaat', url: null, page: null } },
+      source: {
+        versionId: 'v1',
+        priceId: null,
+        priceType: 'unit_price',
+        priceAmount: '123.45',
+        currency: 'TRY',
+        unit: 'm³',
+        institution: 'CSB',
+        period: '2026-01',
+        book: 'Insaat',
+        url: null,
+        page: null,
+      },
+    },
   ]);
   assert.equal(geri[0].fiyatKaynagi, 'katalog');
 });
@@ -205,11 +256,26 @@ test('katalog guncellemesi eski projeyi degistirmez', () => {
   // Bu test o degismezligi kilitler; ileride "yeni fiyatlarla guncelle"
   // eklenirse bunun ACIK bir kullanici eylemi olmasi gerekir.
   const dosyaSatiri = {
-    id: 'a', pozNo: '15.100', description: 'Kazı', unit: 'm³',
-    quantity: '10', unitPrice: '123.45', priceSource: 'katalog',
-    source: { versionId: 'v1', priceId: 'p1', priceType: 'unit_price',
-      priceAmount: '123.45', currency: 'TRY', unit: 'm³', institution: 'CSB',
-      period: '2026 Nisan', book: 'Insaat', url: null, page: null },
+    id: 'a',
+    pozNo: '15.100',
+    description: 'Kazı',
+    unit: 'm³',
+    quantity: '10',
+    unitPrice: '123.45',
+    priceSource: 'katalog',
+    source: {
+      versionId: 'v1',
+      priceId: 'p1',
+      priceType: 'unit_price',
+      priceAmount: '123.45',
+      currency: 'TRY',
+      unit: 'm³',
+      institution: 'CSB',
+      period: '2026 Nisan',
+      book: 'Insaat',
+      url: null,
+      page: null,
+    },
   };
   const bir = restoreCostRows([dosyaSatiri]);
   const iki = restoreCostRows([dosyaSatiri]);
@@ -217,20 +283,109 @@ test('katalog guncellemesi eski projeyi degistirmez', () => {
   assert.equal(bir[0].unitPrice.toString(), '123.45');
   assert.equal(bir[0].source.priceAmount, '123.45');
   assert.equal(bir[0].source.period, '2026 Nisan', 'kaynak donemi korunur');
-  assert.equal(iki[0].unitPrice.toString(), bir[0].unitPrice.toString(),
-    'ayni dosya ayni sonucu verir; disaridan fiyat sizmaz');
+  assert.equal(
+    iki[0].unitPrice.toString(),
+    bir[0].unitPrice.toString(),
+    'ayni dosya ayni sonucu verir; disaridan fiyat sizmaz',
+  );
   assert.equal(bir[0].total.toFixed(2), '1234.50');
 });
 
 test('kaydet/yeniden ac dongusunde kaynak anlik goruntusu bozulmaz', () => {
-  const kaynak = { versionId: 'v1', priceId: 'p1', priceType: 'unit_price',
-    priceAmount: '123.45', currency: 'TRY', unit: 'm³', institution: 'CSB',
-    period: '2026 Nisan', book: 'Insaat', url: null, page: null };
+  const kaynak = {
+    versionId: 'v1',
+    priceId: 'p1',
+    priceType: 'unit_price',
+    priceAmount: '123.45',
+    currency: 'TRY',
+    unit: 'm³',
+    institution: 'CSB',
+    period: '2026 Nisan',
+    book: 'Insaat',
+    url: null,
+    page: null,
+  };
   const satirlar = restoreCostRows([
-    { id: 'a', pozNo: '15.100', description: '', unit: 'm³', quantity: '1',
-      unitPrice: '123.45', priceSource: 'katalog', source: kaynak },
+    {
+      id: 'a',
+      pozNo: '15.100',
+      description: '',
+      unit: 'm³',
+      quantity: '1',
+      unitPrice: '123.45',
+      priceSource: 'katalog',
+      source: kaynak,
+    },
   ]);
   const geri = restoreCostRows(storeCostRows(satirlar));
   assert.deepEqual(geri[0].source, kaynak);
   assert.equal(geri[0].fiyatKaynagi, 'katalog');
+});
+
+// --- PROJE-02 · metraj gidis-donusu -----------------------------------------
+
+test('metraj satirlari dosyaya yazilip geri okunur', () => {
+  const satirlar = [
+    {
+      id: 'a',
+      pozNo: '15.100',
+      description: 'Kazı',
+      unit: 'm³',
+      quantity: new Decimal(48),
+      unitPrice: new Decimal(10),
+      total: new Decimal(480),
+      fromDatabase: false,
+      fiyatKaynagi: 'elle',
+      elleMiktar: new Decimal(7),
+      metraj: [
+        {
+          id: 'm1',
+          mahal: 'Zemin kat',
+          adet: null,
+          boy: new Decimal(10),
+          en: new Decimal(5),
+          yukseklik: null,
+          minha: false,
+        },
+        {
+          id: 'm2',
+          mahal: 'Zemin kat',
+          adet: null,
+          boy: new Decimal(2),
+          en: new Decimal(1),
+          yukseklik: null,
+          minha: true,
+        },
+      ],
+    },
+  ];
+  const yazilan = storeCostRows(satirlar);
+  assert.equal(yazilan[0].takeoff.length, 2);
+  assert.equal(yazilan[0].takeoff[0].boy, '10');
+  assert.equal(yazilan[0].takeoff[0].adet, null, 'bos olcu null kalir, 0 olmaz');
+  assert.equal(yazilan[0].takeoff[1].minha, true);
+  assert.equal(yazilan[0].manualQuantity, '7', 'elle miktar da saklanir');
+
+  const geri = restoreCostRows(yazilan);
+  assert.equal(geri[0].metraj.length, 2);
+  assert.equal(geri[0].metraj[0].boy.toString(), '10');
+  assert.equal(geri[0].metraj[0].adet, null);
+  assert.equal(geri[0].elleMiktar.toString(), '7');
+});
+
+test('metrajsiz satir dosyaya bos metraj alani yazmaz', () => {
+  const [yazilan] = storeCostRows([
+    {
+      id: 'a',
+      pozNo: 'X',
+      description: '',
+      unit: '',
+      quantity: new Decimal(1),
+      unitPrice: new Decimal(1),
+      total: new Decimal(1),
+      fromDatabase: false,
+    },
+  ]);
+  assert.equal('takeoff' in yazilan, false);
+  assert.equal('manualQuantity' in yazilan, false);
 });

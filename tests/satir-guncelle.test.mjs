@@ -85,3 +85,34 @@ test('eski dosyada alan yoksa kaynak varligindan cozulur', () => {
   assert.equal(cozulmusKaynak({ ...satir(), fiyatKaynagi: undefined }), 'katalog');
   assert.equal(cozulmusKaynak({ ...satir(), fiyatKaynagi: undefined, source: undefined }), 'elle');
 });
+
+// --- PROJE-02 · metraj bagi --------------------------------------------------
+
+import { metrajiUygula } from '../src/shared/lib/satir-guncelle.ts';
+
+test('metraj eklenince miktar ondan gelir', () => {
+  const y = metrajiUygula(satir({ quantity: D(2), elleMiktar: D(2) }), [{ minha: false }], D(48));
+  assert.equal(y.quantity.toString(), '48');
+  assert.equal(y.total.toFixed(2), '5925.60', 'tutar yeni miktarla yeniden hesaplanir');
+});
+
+test('metraj kaldirilinca kullanicinin elle degeri geri gelir', () => {
+  // Metraj eklemek kullanicinin girdigi sayiyi kaybettirmemeli.
+  const elle = satiriGuncelle(satir(), { quantity: D(7) });
+  assert.equal(elle.elleMiktar.toString(), '7');
+  const metrajli = metrajiUygula(elle, [{ minha: false }], D(48));
+  assert.equal(metrajli.quantity.toString(), '48');
+  const geri = metrajiUygula(metrajli, [], D(0));
+  assert.equal(geri.quantity.toString(), '7', 'elle deger geri gelmeli');
+});
+
+test('metraj varken miktar guncellemesi elle degeri bozmaz', () => {
+  const metrajli = metrajiUygula(satir({ elleMiktar: D(7) }), [{ minha: false }], D(48));
+  const sonra = satiriGuncelle(metrajli, { quantity: D(99) });
+  assert.equal(sonra.elleMiktar.toString(), '7', 'saklanan elle deger korunur');
+});
+
+test('elle deger hic girilmemisse metraj kalkinca sifir olur, uydurma yok', () => {
+  const metrajli = metrajiUygula(satir({ elleMiktar: undefined }), [{ minha: false }], D(48));
+  assert.equal(metrajiUygula(metrajli, [], D(0)).quantity.toString(), '0');
+});

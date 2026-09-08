@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js';
 import type { FiyatKaynagi } from '@shared/lib/satir-guncelle';
+import type { MetrajSatiri } from '@features/projects/lib/metraj';
 import type { CatalogSource } from './lib/catalog';
 
 export interface PozEntry {
@@ -27,6 +28,13 @@ export interface CostRow {
    * kaynak fiyata dönüş açık bir seçimdir. `analiz` PROJE-03'te doldurulacak.
    */
   fiyatKaynagi?: FiyatKaynagi;
+  /**
+   * Mahal bazlı metraj (PROJE-02). Doluysa `quantity` bundan hesaplanır ve
+   * miktar hücresi düzenlenemez; `elleMiktar` kullanıcının önceki girdisini
+   * saklar ve metraj kaldırılınca geri gelir.
+   */
+  metraj?: MetrajSatiri[];
+  elleMiktar?: Decimal;
 }
 
 export type CostSortKey =
